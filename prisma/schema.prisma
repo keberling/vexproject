@@ -1,0 +1,119 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  password      String
+  name          String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  projects      Project[]
+  calendarEvents CalendarEvent[]
+}
+
+model Project {
+  id            String    @id @default(cuid())
+  name          String
+  location      String
+  address       String?
+  city          String?
+  state         String?
+  zipCode       String?
+  description   String?
+  status        String        @default("INITIAL_CONTACT")
+  templateId    String?
+  template      ProjectTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  milestones    Milestone[]
+  files         ProjectFile[]
+  calendarEvents CalendarEvent[]
+}
+
+// ProjectStatus enum values (stored as strings in SQLite):
+// INITIAL_CONTACT, QUOTE_SENT, QUOTE_APPROVED, CONTRACT_SIGNED,
+// PAYMENT_RECEIVED, PARTS_ORDERED, PARTS_RECEIVED, INSTALLATION_SCHEDULED,
+// INSTALLATION_IN_PROGRESS, INSTALLATION_COMPLETE, FINAL_INSPECTION,
+// PROJECT_COMPLETE, ON_HOLD, CANCELLED
+
+model Milestone {
+  id            String    @id @default(cuid())
+  name          String
+  description   String?
+  status        String          @default("PENDING")
+  dueDate       DateTime?
+  completedDate DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  projectId     String
+  project       Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+// MilestoneStatus enum values (stored as strings in SQLite):
+// PENDING, IN_PROGRESS, COMPLETED, BLOCKED
+
+model CalendarEvent {
+  id            String    @id @default(cuid())
+  title         String
+  description   String?
+  startDate     DateTime
+  endDate       DateTime?
+  allDay        Boolean   @default(false)
+  location      String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projectId     String?
+  project       Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+}
+
+model ProjectFile {
+  id            String    @id @default(cuid())
+  name          String
+  fileName      String
+  fileUrl       String
+  fileType      String
+  fileSize      Int
+  uploadedAt    DateTime  @default(now())
+  projectId     String
+  project       Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  // SharePoint integration fields (for future use)
+  sharepointId  String?
+  sharepointUrl String?
+}
+
+model ProjectTemplate {
+  id            String    @id @default(cuid())
+  name          String
+  description   String?
+  isDefault     Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  templateMilestones TemplateMilestone[]
+  projects      Project[]
+}
+
+model TemplateMilestone {
+  id            String    @id @default(cuid())
+  name          String
+  description   String?
+  order         Int       @default(0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  templateId    String
+  template      ProjectTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+}
+
