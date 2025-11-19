@@ -17,7 +17,7 @@ export default async function DashboardLayout({
 
   const userData = await prisma.user.findUnique({
     where: { id: user.userId },
-    select: { id: true, email: true, name: true },
+    select: { id: true, email: true, name: true, role: true },
   })
 
   if (!userData) {

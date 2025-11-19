@@ -1,5 +1,6 @@
 import { sign, verify } from 'jsonwebtoken'
 import { cookies } from 'next/headers'
+import { prisma } from './prisma'
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-this'
 
@@ -34,5 +35,24 @@ export async function getCurrentUser() {
   }
 
   return payload
+}
+
+export async function getCurrentUserWithRole() {
+  const user = await getCurrentUser()
+  if (!user) {
+    return null
+  }
+
+  const userData = await prisma.user.findUnique({
+    where: { id: user.userId },
+    select: { id: true, email: true, name: true, role: true },
+  })
+
+  return userData
+}
+
+export async function isAdmin() {
+  const user = await getCurrentUserWithRole()
+  return user?.role === 'ADMIN'
 }
 

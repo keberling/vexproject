@@ -2,13 +2,14 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { LayoutDashboard, FolderKanban, Calendar, LogOut, FileText } from 'lucide-react'
+import { LayoutDashboard, FolderKanban, Calendar, LogOut, FileText, Shield } from 'lucide-react'
 
 interface SidebarProps {
   user: {
     id: string
     email: string
     name: string | null
+    role: string
   }
 }
 
@@ -27,6 +28,7 @@ export default function Sidebar({ user }: SidebarProps) {
     { name: 'Projects', href: '/dashboard/projects', icon: FolderKanban },
     { name: 'Templates', href: '/dashboard/templates', icon: FileText },
     { name: 'Calendar', href: '/dashboard/calendar', icon: Calendar },
+    ...(user.role === 'ADMIN' ? [{ name: 'Admin', href: '/dashboard/admin', icon: Shield }] : []),
   ]
 
   return (
