@@ -27,10 +27,19 @@ if (
   )
 }
 
+// Determine if we should trust the host
+// NextAuth v5 requires explicit host trust for security
+const shouldTrustHost = 
+  process.env.AUTH_TRUST_HOST === 'true' || 
+  process.env.AUTH_TRUST_HOST === '1' ||
+  process.env.NODE_ENV === 'development' ||
+  !process.env.AUTH_URL; // If AUTH_URL is not set, assume development
+
 export const config: NextAuthConfig = {
   providers,
-  // Trust host based on environment variable or default to true in development
-  trustHost: process.env.AUTH_TRUST_HOST === 'true' || process.env.AUTH_TRUST_HOST === '1' || process.env.NODE_ENV === 'development',
+  // Trust host - required for NextAuth v5
+  // Add AUTH_TRUST_HOST="true" to .env to explicitly trust localhost
+  trustHost: shouldTrustHost,
   callbacks: {
     async signIn({ user, account, profile }) {
       if (account?.provider === 'azure-ad') {

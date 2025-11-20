@@ -15,6 +15,7 @@ model User {
   email         String    @unique
   password      String?   // Optional for Microsoft SSO users
   name          String?
+  role          String    @default("user") // 'user' or 'admin'
   provider      String?   // 'email' or 'microsoft'
   microsoftId   String?   // Microsoft/Azure AD user ID
   accessToken   String?   // Microsoft access token for API calls

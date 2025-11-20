@@ -1,11 +1,14 @@
 import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
+import { Roboto } from 'next/font/google'
 import './globals.css'
 import { ThemeProvider } from '@/components/theme-provider'
 import { SizeProvider } from '@/lib/size-context'
 import NextAuthSessionProvider from '@/components/session-provider'
 
-const inter = Inter({ subsets: ['latin'] })
+const roboto = Roboto({ 
+  subsets: ['latin'],
+  weight: ['300', '400', '500', '700']
+})
 
 export const metadata: Metadata = {
   title: 'VEX Project Management',
@@ -34,7 +37,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className={inter.className}>
+      <body className={roboto.className}>
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
