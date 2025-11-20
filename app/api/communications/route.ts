@@ -18,11 +18,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Project ID is required' }, { status: 400 })
     }
 
-    // Verify project belongs to user
+    // Verify project exists
     const project = await prisma.project.findFirst({
       where: {
         id: projectId,
-        userId: user.userId,
       },
     })
 
@@ -108,11 +107,10 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Verify project belongs to user
+    // Verify project exists
     const project = await prisma.project.findFirst({
       where: {
         id: projectId,
-        userId: user.userId,
       },
     })
 

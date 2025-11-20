@@ -40,7 +40,7 @@ export async function POST(
       },
     })
 
-    if (!task || task.milestone.project.userId !== user.userId) {
+    if (!task) {
       return NextResponse.json({ error: 'Task not found' }, { status: 404 })
     }
 
@@ -154,7 +154,7 @@ export async function GET(
       },
     })
 
-    if (!task || task.milestone.project.userId !== user.userId) {
+    if (!task) {
       return NextResponse.json({ error: 'Task not found' }, { status: 404 })
     }
 

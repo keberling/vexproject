@@ -18,7 +18,7 @@ export async function DELETE(
       include: { project: true },
     })
 
-    if (!milestone || milestone.project.userId !== user.userId) {
+    if (!milestone) {
       return NextResponse.json({ error: 'Milestone not found' }, { status: 404 })
     }
 

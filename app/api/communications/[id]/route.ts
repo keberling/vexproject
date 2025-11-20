@@ -18,7 +18,7 @@ export async function DELETE(
       include: { project: true },
     })
 
-    if (!communication || communication.project.userId !== user.userId) {
+    if (!communication) {
       return NextResponse.json({ error: 'Communication not found' }, { status: 404 })
     }
 

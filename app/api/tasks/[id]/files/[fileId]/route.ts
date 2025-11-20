@@ -25,7 +25,7 @@ export async function DELETE(
       },
     })
 
-    if (!task || task.milestone.project.userId !== user.userId) {
+    if (!task) {
       return NextResponse.json({ error: 'Task not found' }, { status: 404 })
     }
 

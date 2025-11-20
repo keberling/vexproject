@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    if (!milestone || milestone.project.userId !== user.userId) {
+    if (!milestone) {
       return NextResponse.json({ error: 'Milestone not found' }, { status: 404 })
     }
 

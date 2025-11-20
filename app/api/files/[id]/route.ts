@@ -20,7 +20,7 @@ export async function DELETE(
       include: { project: true },
     })
 
-    if (!file || file.project.userId !== user.userId) {
+    if (!file) {
       return NextResponse.json({ error: 'File not found' }, { status: 404 })
     }
 

@@ -25,7 +25,7 @@ export async function DELETE(
       },
     })
 
-    if (!task || task.milestone.project.userId !== user.userId) {
+    if (!task) {
       return NextResponse.json({ error: 'Task not found' }, { status: 404 })
     }
 
@@ -39,11 +39,6 @@ export async function DELETE(
 
     if (!comment) {
       return NextResponse.json({ error: 'Comment not found' }, { status: 404 })
-    }
-
-    // Only allow deletion by comment owner or project owner
-    if (comment.userId !== user.userId && task.milestone.project.userId !== user.userId) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
     await prisma.taskComment.delete({

@@ -66,12 +66,11 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Verify project belongs to user if provided
+    // Verify project exists if provided
     if (projectId) {
       const project = await prisma.project.findFirst({
         where: {
           id: projectId,
-          userId: user.userId,
         },
       })
 

@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
         include: { project: true },
       })
 
-      if (!milestone || milestone.project.userId !== user.userId) {
+      if (!milestone) {
         return NextResponse.json({ error: 'Milestone not found' }, { status: 404 })
       }
 
@@ -43,7 +43,6 @@ export async function GET(request: NextRequest) {
       const project = await prisma.project.findFirst({
         where: {
           id: projectId,
-          userId: user.userId,
         },
       })
 
@@ -97,11 +96,10 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Verify project belongs to user
+    // Verify project exists
     const project = await prisma.project.findFirst({
       where: {
         id: projectId,
-        userId: user.userId,
       },
     })
 
