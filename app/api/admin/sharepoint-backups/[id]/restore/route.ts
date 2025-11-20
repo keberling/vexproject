@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentUser } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { createGraphClient } from '@/lib/sharepoint'
 import AdmZip from 'adm-zip'
 
-// Restore database from backup (admin only)
+// Restore database from a SharePoint backup (admin only)
 // Imports data via Prisma from JSON backup file
-export async function POST(request: NextRequest) {
+export async function POST(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
   try {
     const user = await getCurrentUser()
     
@@ -16,74 +20,94 @@ export async function POST(request: NextRequest) {
     // Check if user is admin
     const dbUser = await prisma.user.findUnique({
       where: { id: user.userId },
-      select: { role: true },
+      select: { role: true, accessToken: true, provider: true },
     })
 
     if (dbUser?.role !== 'admin') {
       return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 })
     }
 
-    const formData = await request.formData()
-    const file = formData.get('file') as File
-
-    if (!file) {
+    // Check if user has Microsoft SSO
+    if (dbUser.provider !== 'microsoft' || !dbUser.accessToken) {
       return NextResponse.json(
-        { error: 'No backup file provided' },
+        { error: 'Microsoft SSO required to restore from SharePoint' },
         { status: 400 }
       )
     }
 
-    // Read and extract backup file
-    const arrayBuffer = await file.arrayBuffer()
-    const buffer = Buffer.from(arrayBuffer)
-    const zip = new AdmZip(buffer)
-    const zipEntries = zip.getEntries()
-
-    // Find backup data file
-    const dataEntry = zipEntries.find((entry) => 
-      entry.entryName === 'backup-data.json' || entry.entryName.endsWith('.json')
-    )
-    
-    if (!dataEntry) {
-      return NextResponse.json(
-        { error: 'Invalid backup file - backup-data.json not found' },
-        { status: 400 }
-      )
-    }
-
-    // Parse backup data
-    let backupData: any
-    try {
-      const jsonContent = dataEntry.getData().toString()
-      backupData = JSON.parse(jsonContent)
-    } catch (error) {
-      return NextResponse.json(
-        { error: 'Invalid backup file - could not parse JSON' },
-        { status: 400 }
-      )
-    }
-
-    console.log('Restore: Parsed backup data')
-    console.log(`Restore: Backup contains ${backupData.metadata?.counts?.projects || '?'} projects`)
-
-    if (!backupData.data) {
-      return NextResponse.json(
-        { error: 'Invalid backup file - missing data section' },
-        { status: 400 }
-      )
-    }
-
-    const { data, metadata } = backupData
-
-    // Confirm restore
-    const expectedCounts = metadata?.counts || {}
-    console.log(`Restore: Expected ${expectedCounts.projects || 0} projects, ${expectedCounts.users || 0} users`)
-
-    // Start transaction to restore all data
-    console.log('Restore: Starting data import...')
+    const backupId = params.id
 
     try {
-      // Delete all existing data (in correct order to respect foreign keys)
+      const client = createGraphClient(dbUser.accessToken)
+      const siteId = process.env.SHAREPOINT_SITE_ID
+
+      // Determine base path
+      let basePath: string
+      if (siteId) {
+        basePath = `/sites/${siteId}`
+      } else {
+        basePath = '/me'
+      }
+
+      // Download the backup file from SharePoint
+      console.log(`Restore: Downloading backup ${backupId} from SharePoint...`)
+      const fileResponse = await client
+        .api(`${basePath}/drive/items/${backupId}`)
+        .get()
+
+      const downloadUrl = fileResponse['@microsoft.graph.downloadUrl'] || fileResponse.webUrl
+      
+      // Fetch the file content
+      const fileResponse2 = await fetch(downloadUrl)
+      if (!fileResponse2.ok) {
+        throw new Error(`Failed to download backup file: ${fileResponse2.statusText}`)
+      }
+
+      const arrayBuffer = await fileResponse2.arrayBuffer()
+      const buffer = Buffer.from(arrayBuffer)
+      console.log(`Restore: Downloaded backup, size: ${buffer.length} bytes`)
+
+      // Extract the zip file
+      const zip = new AdmZip(buffer)
+      const zipEntries = zip.getEntries()
+
+      // Find backup data file
+      const dataEntry = zipEntries.find((entry) => 
+        entry.entryName === 'backup-data.json' || entry.entryName.endsWith('.json')
+      )
+      
+      if (!dataEntry) {
+        return NextResponse.json(
+          { error: 'Invalid backup file - backup-data.json not found' },
+          { status: 400 }
+        )
+      }
+
+      // Parse backup data
+      let backupData: any
+      try {
+        const jsonContent = dataEntry.getData().toString()
+        backupData = JSON.parse(jsonContent)
+      } catch (error) {
+        return NextResponse.json(
+          { error: 'Invalid backup file - could not parse JSON' },
+          { status: 400 }
+        )
+      }
+
+      console.log('Restore: Parsed backup data')
+      
+      if (!backupData.data) {
+        return NextResponse.json(
+          { error: 'Invalid backup file - missing data section' },
+          { status: 400 }
+        )
+      }
+
+      const { data, metadata } = backupData
+      const expectedCounts = metadata?.counts || {}
+
+      // Delete all existing data
       console.log('Restore: Clearing existing data...')
       await Promise.all([
         prisma.statusChange.deleteMany(),
@@ -98,10 +122,9 @@ export async function POST(request: NextRequest) {
         prisma.user.deleteMany(),
       ])
 
-      console.log('Restore: Existing data cleared')
-
-      // Restore data (in correct order to respect foreign keys)
-      console.log('Restore: Importing users...')
+      // Restore data (same logic as file restore)
+      console.log('Restore: Importing data...')
+      
       if (data.users && data.users.length > 0) {
         await prisma.user.createMany({
           data: data.users.map((u: any) => ({
@@ -120,7 +143,6 @@ export async function POST(request: NextRequest) {
         })
       }
 
-      console.log('Restore: Importing templates...')
       if (data.templates && data.templates.length > 0) {
         await prisma.projectTemplate.createMany({
           data: data.templates.map((t: any) => ({
@@ -148,7 +170,6 @@ export async function POST(request: NextRequest) {
         })
       }
 
-      console.log('Restore: Importing projects...')
       if (data.projects && data.projects.length > 0) {
         await prisma.project.createMany({
           data: data.projects.map((p: any) => ({
@@ -169,7 +190,6 @@ export async function POST(request: NextRequest) {
         })
       }
 
-      console.log('Restore: Importing milestones...')
       if (data.milestones && data.milestones.length > 0) {
         await prisma.milestone.createMany({
           data: data.milestones.map((m: any) => ({
@@ -186,7 +206,6 @@ export async function POST(request: NextRequest) {
         })
       }
 
-      console.log('Restore: Importing files...')
       if (data.files && data.files.length > 0) {
         await prisma.projectFile.createMany({
           data: data.files.map((f: any) => ({
@@ -206,7 +225,6 @@ export async function POST(request: NextRequest) {
         })
       }
 
-      console.log('Restore: Importing communications...')
       if (data.communications && data.communications.length > 0) {
         await prisma.communication.createMany({
           data: data.communications.map((c: any) => ({
@@ -224,7 +242,6 @@ export async function POST(request: NextRequest) {
         })
       }
 
-      console.log('Restore: Importing comments...')
       if (data.comments && data.comments.length > 0) {
         await prisma.milestoneComment.createMany({
           data: data.comments.map((c: any) => ({
@@ -238,7 +255,6 @@ export async function POST(request: NextRequest) {
         })
       }
 
-      console.log('Restore: Importing status changes...')
       if (data.statusChanges && data.statusChanges.length > 0) {
         await prisma.statusChange.createMany({
           data: data.statusChanges.map((s: any) => ({
@@ -255,7 +271,6 @@ export async function POST(request: NextRequest) {
         })
       }
 
-      console.log('Restore: Importing calendar events...')
       if (data.calendarEvents && data.calendarEvents.length > 0) {
         await prisma.calendarEvent.createMany({
           data: data.calendarEvents.map((e: any) => ({
@@ -286,7 +301,6 @@ export async function POST(request: NextRequest) {
       
       console.log(`Restore: Restored ${restoredProjectCount} projects, ${restoredUserCount} users, ${restoredMilestoneCount} milestones`)
 
-      // Compare with expected counts
       if (expectedCounts.projects !== undefined && restoredProjectCount !== expectedCounts.projects) {
         return NextResponse.json({
           success: false,
@@ -304,7 +318,7 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({
         success: true,
-        message: 'Database restored successfully',
+        message: 'Database restored successfully from SharePoint backup',
         restoredCounts: {
           projects: restoredProjectCount,
           users: restoredUserCount,
@@ -312,18 +326,20 @@ export async function POST(request: NextRequest) {
         },
         restoredProjects: restoredProjects.map(p => p.name),
       })
-    } catch (restoreError: any) {
-      console.error('Restore: Error during data import:', restoreError)
-      return NextResponse.json({
-        success: false,
-        error: 'Failed to restore data',
-        details: restoreError.message || String(restoreError),
-      }, { status: 500 })
+    } catch (error: any) {
+      console.error('Error restoring from SharePoint:', error)
+      return NextResponse.json(
+        { 
+          error: 'Failed to restore from SharePoint backup',
+          details: error.message || String(error),
+        },
+        { status: 500 }
+      )
     }
   } catch (error) {
-    console.error('Error restoring backup:', error)
+    console.error('Error in sharepoint-backup restore route:', error)
     return NextResponse.json(
-      { error: 'Internal server error', details: String(error) },
+      { error: 'Internal server error' },
       { status: 500 }
     )
   }

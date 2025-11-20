@@ -41,6 +41,7 @@ export async function GET(
             id: true,
             name: true,
             email: true,
+            provider: true,
           },
         },
         milestone: {
@@ -66,6 +67,7 @@ export async function GET(
             id: true,
             name: true,
             email: true,
+            provider: true,
           },
         },
         milestone: {

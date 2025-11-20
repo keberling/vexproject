@@ -27,6 +27,7 @@ model User {
   milestoneComments MilestoneComment[]
   communications Communication[]
   statusChanges StatusChange[]
+  backupSchedules BackupSchedule[]
 }
 
 model Project {
@@ -174,5 +175,18 @@ model StatusChange {
   milestone     Milestone? @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
   userId        String
   user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model BackupSchedule {
+  id            String    @id @default(cuid())
+  enabled       Boolean   @default(true)
+  frequency     String          // '10min', '30min', 'hourly', 'daily', 'weekly'
+  startTime     DateTime?       // Optional start time for the first backup
+  lastRun       DateTime?       // Last time the backup ran
+  nextRun       DateTime?       // Next scheduled run time
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  createdBy     String
+  creator       User      @relation(fields: [createdBy], references: [id], onDelete: Cascade)
 }
 

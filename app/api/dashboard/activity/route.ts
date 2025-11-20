@@ -34,6 +34,7 @@ export async function GET(request: NextRequest) {
             id: true,
             name: true,
             email: true,
+            provider: true,
           },
         },
         project: {
@@ -66,6 +67,7 @@ export async function GET(request: NextRequest) {
             id: true,
             name: true,
             email: true,
+            provider: true,
           },
         },
         milestone: {
@@ -94,6 +96,7 @@ export async function GET(request: NextRequest) {
             id: true,
             name: true,
             email: true,
+            provider: true,
           },
         },
         project: {

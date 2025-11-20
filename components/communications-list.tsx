@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { Communication } from '@prisma/client'
 import { Phone, Mail, Users, FileText, Plus, Trash2 } from 'lucide-react'
 import * as Dialog from '@radix-ui/react-dialog'
+import UserAvatar from './user-avatar'
 
 interface CommunicationItem {
   id: string
@@ -320,9 +321,18 @@ export default function CommunicationsList({ projectId, milestones, onUpdate, re
                       <p className="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
                         {comm.content}
                       </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        {comm.user.name || comm.user.email} • {new Date(comm.createdAt).toLocaleString()}
-                      </p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <UserAvatar
+                          userId={comm.user.id}
+                          userName={comm.user.name}
+                          userEmail={comm.user.email}
+                          provider={(comm.user as any).provider}
+                          size={16}
+                        />
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          {comm.user.name || comm.user.email} • {new Date(comm.createdAt).toLocaleString()}
+                        </p>
+                      </div>
                     </div>
                   </div>
                   <button

@@ -32,12 +32,11 @@ npm run db:generate
 npm run db:push
 ```
 
-3. Create a `.env` file from `.env.example`:
-```bash
-cp .env.example .env
-```
+The database uses SQLite (embedded, no installation required). The database file will be created at `prisma/dev.db`.
 
-4. Update the `.env` file with your configuration (especially `JWT_SECRET`)
+4. Create a `.env` file (if it doesn't exist) and update with your configuration:
+   - `JWT_SECRET` - Generate a random secret
+   - Other environment variables as needed
 
 5. Run the development server:
 ```bash
@@ -96,7 +95,7 @@ Microsoft SSO and SharePoint integration are disabled by default. To enable:
 - **Framework**: Next.js 14
 - **Language**: TypeScript
 - **Styling**: Tailwind CSS
-- **Database**: SQLite (Prisma ORM)
+- **Database**: SQLite (Prisma ORM) - Embedded, no installation required
 - **Authentication**: JWT (with Microsoft SSO placeholder)
 - **UI Components**: Radix UI
 

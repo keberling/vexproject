@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { createReadStream, existsSync, readFileSync } from 'fs'
-import { join } from 'path'
 import archiver from 'archiver'
 import { createGraphClient } from '@/lib/sharepoint'
-import { uploadFileToSharePoint } from '@/lib/sharepoint'
+import { uploadBackupToSharePoint } from '@/lib/sharepoint'
 
 // Scheduled backup endpoint (can be called by cron job or scheduler)
 // Requires ADMIN_BACKUP_SECRET in environment for security
@@ -35,71 +33,146 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Get database path from DATABASE_URL
-    const dbUrl = process.env.DATABASE_URL
-    if (!dbUrl || !dbUrl.startsWith('file:')) {
-      return NextResponse.json(
-        { error: 'Database URL not configured for file-based database' },
-        { status: 400 }
-      )
+    console.log('Scheduled backup: Starting data export...')
+
+    // Export all data from the database (same as manual backup)
+    const [users, projects, milestones, files, communications, comments, statusChanges, calendarEvents, templates, templateMilestones] = await Promise.all([
+      prisma.user.findMany({
+        include: {
+          projects: false,
+          calendarEvents: false,
+          milestoneComments: false,
+          communications: false,
+          statusChanges: false,
+        },
+      }),
+      prisma.project.findMany({
+        include: {
+          template: false,
+          user: false,
+          milestones: false,
+          files: false,
+          calendarEvents: false,
+          communications: false,
+          statusChanges: false,
+        },
+      }),
+      prisma.milestone.findMany({
+        include: {
+          project: false,
+          files: false,
+          comments: false,
+          communications: false,
+          statusChanges: false,
+        },
+      }),
+      prisma.projectFile.findMany({
+        include: {
+          project: false,
+          milestone: false,
+        },
+      }),
+      prisma.communication.findMany({
+        include: {
+          project: false,
+          milestone: false,
+          user: false,
+        },
+      }),
+      prisma.milestoneComment.findMany({
+        include: {
+          milestone: false,
+          user: false,
+        },
+      }),
+      prisma.statusChange.findMany({
+        include: {
+          project: false,
+          milestone: false,
+          user: false,
+        },
+      }),
+      prisma.calendarEvent.findMany({
+        include: {
+          user: false,
+          project: false,
+        },
+      }),
+      prisma.projectTemplate.findMany({
+        include: {
+          templateMilestones: true,
+          projects: false,
+        },
+      }),
+      prisma.templateMilestone.findMany({
+        include: {
+          template: false,
+        },
+      }),
+    ])
+
+    // Create backup data structure
+    const backupData = {
+      version: '2.0',
+      format: 'prisma-export',
+      timestamp: new Date().toISOString(),
+      type: 'scheduled',
+      data: {
+        users,
+        projects,
+        milestones,
+        files,
+        communications,
+        comments,
+        statusChanges,
+        calendarEvents,
+        templates,
+        templateMilestones,
+      },
+      metadata: {
+        counts: {
+          projects: projects.length,
+          users: users.length,
+          milestones: milestones.length,
+          files: files.length,
+          communications: communications.length,
+          comments: comments.length,
+          statusChanges: statusChanges.length,
+          calendarEvents: calendarEvents.length,
+          templates: templates.length,
+          templateMilestones: templateMilestones.length,
+        },
+      },
     }
 
-    const dbPath = dbUrl.replace('file:', '').replace(/^\/+/, '')
-    const fullDbPath = join(process.cwd(), dbPath)
-
-    if (!existsSync(fullDbPath)) {
-      return NextResponse.json(
-        { error: 'Database file not found' },
-        { status: 404 }
-      )
-    }
-
-    // Create backup filename with timestamp
+    // Create zip archive
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
-    const backupFileName = `vex-scheduled-backup-${timestamp}.zip`
+    const zipFileName = `vex-scheduled-backup-${timestamp}.zip`
     
-    // Create zip archive in memory
     const archive = archiver('zip', { zlib: { level: 9 } })
     const chunks: Buffer[] = []
 
-    archive.on('data', (chunk: Buffer) => {
-      chunks.push(chunk)
-    })
-
-    archive.on('error', (err) => {
-      throw err
-    })
-
-    // Add database file to archive
-    const dbFile = readFileSync(fullDbPath)
-    archive.append(dbFile, { name: 'database.db' })
-
-    // Add metadata
-    const metadata = {
-      timestamp: new Date().toISOString(),
-      version: '1.0',
-      databasePath: dbPath,
-      type: 'scheduled',
-    }
-    archive.append(JSON.stringify(metadata, null, 2), { name: 'backup-metadata.json' })
-
-    await archive.finalize()
-
-    // Wait for all chunks
-    await new Promise((resolve) => {
+    const archivePromise = new Promise<void>((resolve, reject) => {
+      archive.on('data', (chunk: Buffer) => chunks.push(chunk))
+      archive.on('error', reject)
       archive.on('end', resolve)
     })
 
+    archive.append(JSON.stringify(backupData, null, 2), { name: 'backup-data.json' })
+
+    await archive.finalize()
+    await archivePromise
+
     const backupBuffer = Buffer.concat(chunks)
+    console.log(`Scheduled backup: Created backup, size: ${backupBuffer.length} bytes`)
 
     // Upload to SharePoint
     try {
       const client = createGraphClient(adminUser.accessToken)
-      const sharepointFile = await uploadFileToSharePoint(
+      const sharepointFile = await uploadBackupToSharePoint(
         client,
         backupBuffer,
-        backupFileName,
-        'Database Backups', // Use a special folder name for backups
+        zipFileName,
         process.env.SHAREPOINT_SITE_ID,
         process.env.SHAREPOINT_DRIVE_ID
       )
@@ -107,7 +180,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: true,
         message: 'Scheduled backup completed and uploaded to SharePoint',
-        fileName: backupFileName,
+        fileName: zipFileName,
         sharepointUrl: sharepointFile.webUrl,
         size: backupBuffer.length,
       })
@@ -121,9 +194,8 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Error creating scheduled backup:', error)
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Internal server error', details: String(error) },
       { status: 500 }
     )
   }
 }
-

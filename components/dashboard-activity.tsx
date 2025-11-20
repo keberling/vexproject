@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { Phone, Mail, FileText, MessageSquare, ArrowRight } from 'lucide-react'
 import Link from 'next/link'
 import { formatStatus } from '@/lib/status-colors'
+import UserAvatar from './user-avatar'
 
 interface ActivityItem {
   id: string
@@ -120,9 +121,18 @@ export default function DashboardActivity() {
                         <span className="font-medium">{item.oldStatus ? formatStatus(item.oldStatus) : 'N/A'}</span> to{' '}
                         <span className="font-medium">{item.newStatus ? formatStatus(item.newStatus) : 'N/A'}</span>
                       </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        {item.user.name || item.user.email} • {new Date(item.createdAt).toLocaleString()}
-                      </p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <UserAvatar
+                          userId={item.user.id}
+                          userName={item.user.name}
+                          userEmail={item.user.email}
+                          provider={(item.user as any).provider}
+                          size={16}
+                        />
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          {item.user.name || item.user.email} • {new Date(item.createdAt).toLocaleString()}
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </div>

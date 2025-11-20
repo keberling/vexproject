@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { LayoutDashboard, FolderKanban, Calendar, LogOut, FileText, Shield } from 'lucide-react'
+import UserAvatar from './user-avatar'
 
 interface SidebarProps {
   user: {
@@ -10,6 +11,7 @@ interface SidebarProps {
     email: string
     name: string | null
     role?: string
+    provider?: string | null
   }
 }
 
@@ -64,8 +66,17 @@ export default function Sidebar({ user }: SidebarProps) {
               </ul>
             </li>
             <li className="mt-auto">
-              <div className="text-xs font-semibold leading-6 text-gray-400 dark:text-gray-500">
-                {user.name || user.email}
+              <div className="flex items-center gap-2 mb-2">
+                <UserAvatar
+                  userId={user.id}
+                  userName={user.name}
+                  userEmail={user.email}
+                  provider={user.provider}
+                  size={32}
+                />
+                <div className="text-xs font-semibold leading-6 text-gray-400 dark:text-gray-500 truncate">
+                  {user.name || user.email}
+                </div>
               </div>
               <button
                 onClick={handleLogout}
