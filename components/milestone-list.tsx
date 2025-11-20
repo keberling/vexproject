@@ -203,12 +203,27 @@ export default function MilestoneList({ projectId, milestones, onUpdate }: Miles
   const [uploadingTaskFiles, setUploadingTaskFiles] = useState<Record<string, boolean>>({})
   const localTaskUpdates = useRef<Set<string>>(new Set()) // Track milestones with local task updates
 
-  // Calculate milestone progress based on tasks
-  const calculateMilestoneProgress = (milestoneId: string): number => {
-    const milestoneTasks = tasks[milestoneId] || []
-    if (milestoneTasks.length === 0) return 0
-    const completedTasks = milestoneTasks.filter(t => t.status === 'COMPLETED').length
-    return Math.round((completedTasks / milestoneTasks.length) * 100)
+  // Calculate milestone progress based on tasks, or status if no tasks
+  const calculateMilestoneProgress = (milestone: Milestone & { category?: string | null; isImportant?: boolean }): number => {
+    const milestoneTasks = tasks[milestone.id] || []
+    
+    // If there are tasks, calculate based on task completion
+    if (milestoneTasks.length > 0) {
+      const completedTasks = milestoneTasks.filter(t => t.status === 'COMPLETED').length
+      return Math.round((completedTasks / milestoneTasks.length) * 100)
+    }
+    
+    // If no tasks, calculate based on milestone status
+    const statusProgressMap: Record<string, number> = {
+      'PENDING': 0,
+      'PENDING_WAITING_FOR_INFO': 10,
+      'PENDING_SCHEDULED': 20,
+      'IN_PROGRESS': 50,
+      'ON_HOLD': 30,
+      'COMPLETED': 100,
+    }
+    
+    return statusProgressMap[milestone.status] || 0
   }
 
   // Fetch users for assignment
@@ -1054,7 +1069,7 @@ export default function MilestoneList({ projectId, milestones, onUpdate }: Miles
                   <div className="absolute top-0 left-0 right-0 h-1 bg-gray-200 dark:bg-gray-700">
                     <div 
                       className="h-full bg-blue-600 transition-all duration-300"
-                      style={{ width: `${calculateMilestoneProgress(milestone.id)}%` }}
+                      style={{ width: `${calculateMilestoneProgress(milestone)}%` }}
                     />
                   </div>
                   <div className="flex items-center gap-3 flex-1 mt-1">
@@ -1090,7 +1105,14 @@ export default function MilestoneList({ projectId, milestones, onUpdate }: Miles
                           </span>
                         )}
                         <span className="text-xs text-gray-500 dark:text-gray-400">
-                          {calculateMilestoneProgress(milestone.id)}% ({tasks[milestone.id]?.filter(t => t.status === 'COMPLETED').length || 0}/{tasks[milestone.id]?.length || 0})
+                          {(() => {
+                            const milestoneTasks = tasks[milestone.id] || []
+                            if (milestoneTasks.length > 0) {
+                              return `${calculateMilestoneProgress(milestone)}% (${milestoneTasks.filter(t => t.status === 'COMPLETED').length}/${milestoneTasks.length})`
+                            } else {
+                              return `${calculateMilestoneProgress(milestone)}% (Status)`
+                            }
+                          })()}
                         </span>
                         <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${statusColors[milestone.status as keyof typeof statusColors] || statusColors.PENDING}`}>
                           {statusLabels[milestone.status as keyof typeof statusLabels] || milestone.status}

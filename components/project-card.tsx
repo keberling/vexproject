@@ -49,12 +49,28 @@ export default function ProjectCard({ project }: ProjectCardProps) {
   const router = useRouter()
   const [uploading, setUploading] = useState(false)
 
-  // Calculate progress based on tasks within milestones
+  // Calculate progress based on tasks within milestones, or status if no tasks
   const milestoneProgress = project.milestones.map((milestone) => {
     const tasks = (milestone as any).tasks || []
     const totalTasks = tasks.length
-    const completedTasks = tasks.filter((t: any) => t.status === 'COMPLETED').length
-    return totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0
+    
+    // If there are tasks, calculate based on task completion
+    if (totalTasks > 0) {
+      const completedTasks = tasks.filter((t: any) => t.status === 'COMPLETED').length
+      return (completedTasks / totalTasks) * 100
+    }
+    
+    // If no tasks, calculate based on milestone status
+    const statusProgressMap: Record<string, number> = {
+      'PENDING': 0,
+      'PENDING_WAITING_FOR_INFO': 10,
+      'PENDING_SCHEDULED': 20,
+      'IN_PROGRESS': 50,
+      'ON_HOLD': 30,
+      'COMPLETED': 100,
+    }
+    
+    return statusProgressMap[milestone.status] || 0
   })
   const overallProgress = milestoneProgress.length > 0 
     ? milestoneProgress.reduce((sum, p) => sum + p, 0) / milestoneProgress.length 
@@ -182,8 +198,25 @@ export default function ProjectCard({ project }: ProjectCardProps) {
                   {project.milestones.slice(0, 3).map((milestone) => {
                     const tasks = (milestone as any).tasks || []
                     const totalTasks = tasks.length
-                    const completedTasks = tasks.filter((t: any) => t.status === 'COMPLETED').length
-                    const taskProgress = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0
+                    
+                    // Calculate progress based on tasks or status
+                    let taskProgress: number
+                    if (totalTasks > 0) {
+                      const completedTasks = tasks.filter((t: any) => t.status === 'COMPLETED').length
+                      taskProgress = (completedTasks / totalTasks) * 100
+                    } else {
+                      // Use status-based progress
+                      const statusProgressMap: Record<string, number> = {
+                        'PENDING': 0,
+                        'PENDING_WAITING_FOR_INFO': 10,
+                        'PENDING_SCHEDULED': 20,
+                        'IN_PROGRESS': 50,
+                        'ON_HOLD': 30,
+                        'COMPLETED': 100,
+                      }
+                      taskProgress = statusProgressMap[milestone.status] || 0
+                    }
+                    
                     return (
                       <div key={milestone.id} className="space-y-0.5">
                         <div className="flex items-center justify-between text-xs">
