@@ -47,7 +47,7 @@ export default function TemplatesList({ templates: initialTemplates }: Templates
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    milestones: [{ name: '', description: '', category: '', tasks: [{ name: '', description: '', order: 0, assignedToId: '' }], order: 0 }],
+    milestones: [{ name: '', description: '', category: '', tasks: [{ name: '', description: '', order: 0, assignedToId: null }], order: 0 }],
     isDefault: false,
   })
   const [users, setUsers] = useState<Array<{ id: string; name: string | null; email: string }>>([])
@@ -109,6 +109,7 @@ export default function TemplatesList({ templates: initialTemplates }: Templates
               tasks: (m.tasks || []).filter(t => t.name.trim()).map((t, taskIndex) => ({
                 name: t.name,
                 description: t.description || undefined,
+                assignedToId: (t.assignedToId && t.assignedToId !== '' && t.assignedToId !== null) ? t.assignedToId : undefined,
                 order: taskIndex,
               })),
               order: index,
@@ -126,7 +127,7 @@ export default function TemplatesList({ templates: initialTemplates }: Templates
       setFormData({
         name: '',
         description: '',
-        milestones: [{ name: '', description: '', category: '', tasks: [{ name: '', description: '', order: 0, assignedToId: '' }], order: 0 }],
+        milestones: [{ name: '', description: '', category: '', tasks: [{ name: '', description: '', order: 0, assignedToId: null }], order: 0 }],
         isDefault: false,
       })
       router.refresh()
@@ -154,11 +155,11 @@ export default function TemplatesList({ templates: initialTemplates }: Templates
                 name: t.name,
                 description: t.description || '',
                 order: t.order,
-                assignedToId: (t as any).assignedToId || '',
+                assignedToId: (t as any).assignedToId || null,
               })),
               order: m.order,
             }))
-          : [{ name: '', description: '', category: '', tasks: [{ name: '', description: '', order: 0 }], order: 0 }],
+          : [{ name: '', description: '', category: '', tasks: [{ name: '', description: '', order: 0, assignedToId: null }], order: 0 }],
         isDefault: template.isDefault,
       })
     setIsEditDialogOpen(true)
@@ -186,6 +187,7 @@ export default function TemplatesList({ templates: initialTemplates }: Templates
               tasks: (m.tasks || []).filter(t => t.name.trim()).map((t, taskIndex) => ({
                 name: t.name,
                 description: t.description || undefined,
+                assignedToId: (t.assignedToId && t.assignedToId !== '' && t.assignedToId !== null) ? t.assignedToId : undefined,
                 order: taskIndex,
               })),
               order: index,
@@ -204,7 +206,7 @@ export default function TemplatesList({ templates: initialTemplates }: Templates
       setFormData({
         name: '',
         description: '',
-        milestones: [{ name: '', description: '', category: '', tasks: [{ name: '', description: '', order: 0, assignedToId: '' }], order: 0 }],
+        milestones: [{ name: '', description: '', category: '', tasks: [{ name: '', description: '', order: 0, assignedToId: null }], order: 0 }],
         isDefault: false,
       })
       router.refresh()
@@ -226,7 +228,7 @@ export default function TemplatesList({ templates: initialTemplates }: Templates
     const updated = [...formData.milestones]
     updated[milestoneIndex] = {
       ...updated[milestoneIndex],
-      tasks: [...(updated[milestoneIndex].tasks || []), { name: '', description: '', order: (updated[milestoneIndex].tasks || []).length, assignedToId: '' }],
+      tasks: [...(updated[milestoneIndex].tasks || []), { name: '', description: '', order: (updated[milestoneIndex].tasks || []).length, assignedToId: null }],
     }
     setFormData({ ...formData, milestones: updated })
   }
@@ -240,7 +242,7 @@ export default function TemplatesList({ templates: initialTemplates }: Templates
     setFormData({ ...formData, milestones: updated })
   }
 
-  const updateTask = (milestoneIndex: number, taskIndex: number, field: string, value: string) => {
+  const updateTask = (milestoneIndex: number, taskIndex: number, field: string, value: string | null) => {
     const updated = [...formData.milestones]
     const tasks = [...(updated[milestoneIndex].tasks || [])]
     tasks[taskIndex] = { ...tasks[taskIndex], [field]: value }
@@ -615,7 +617,7 @@ export default function TemplatesList({ templates: initialTemplates }: Templates
                                   />
                                   <select
                                     value={task.assignedToId || ''}
-                                    onChange={(e) => updateTask(index, taskIndex, 'assignedToId', e.target.value)}
+                                    onChange={(e) => updateTask(index, taskIndex, 'assignedToId', e.target.value || null)}
                                     className="block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-xs bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-2 py-1"
                                   >
                                     <option value="">Unassigned</option>
@@ -662,7 +664,7 @@ export default function TemplatesList({ templates: initialTemplates }: Templates
                       setFormData({
                         name: '',
                         description: '',
-                        milestones: [{ name: '', description: '', category: '', tasks: [{ name: '', description: '', order: 0, assignedToId: '' }], order: 0 }],
+                        milestones: [{ name: '', description: '', category: '', tasks: [{ name: '', description: '', order: 0, assignedToId: null }], order: 0 }],
                         isDefault: false,
                       })
                     }}
