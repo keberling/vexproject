@@ -34,7 +34,7 @@ async function migrateProjectFields() {
       SELECT id, location, city, state, "zipCode", 
              "gcContact", "cdsContact", "franchiseOwnerContact"
       FROM Project
-    `)
+    `
 
     console.log(`Found ${projects.length} projects to migrate`)
 
@@ -93,22 +93,28 @@ async function migrateProjectFields() {
 
         // Only update if there's data to update
         if (Object.keys(updateData).length > 0) {
-          await prisma.$executeRaw`
-            UPDATE Project 
-            SET ${Object.entries(updateData).map(([key, value]) => 
-              prisma.$queryRaw`${key} = ${value}`
-            )}
-            WHERE id = ${project.id}
-          `.catch(async () => {
-            // If raw SQL fails, try using Prisma (after schema is updated)
+          try {
+            // Try using Prisma update (works after schema is updated)
             await prisma.project.update({
               where: { id: project.id },
               data: updateData,
-            }).catch((err) => {
-              console.error(`Failed to update project ${project.id}:`, err)
             })
-          })
-          migrated++
+            migrated++
+          } catch (err) {
+            // If Prisma update fails (schema not updated yet), try raw SQL
+            try {
+              const setClause = Object.entries(updateData)
+                .map(([key, value]) => `"${key}" = ${value ? `'${String(value).replace(/'/g, "''")}'` : 'NULL'}`)
+                .join(', ')
+              
+              await prisma.$executeRawUnsafe(
+                `UPDATE Project SET ${setClause} WHERE id = '${project.id}'`
+              )
+              migrated++
+            } catch (sqlErr) {
+              console.error(`Failed to update project ${project.id}:`, sqlErr)
+            }
+          }
         } else {
           skipped++
         }
