@@ -122,7 +122,17 @@ export default function ProjectDetail({ project: initialProject }: ProjectDetail
     }
   }
 
-  const handleRefresh = () => {
+  const handleRefresh = async () => {
+    // Refetch the project data to update the client state
+    try {
+      const response = await fetch(`/api/projects/${project.id}`)
+      if (response.ok) {
+        const data = await response.json()
+        setProject(data.project)
+      }
+    } catch (error) {
+      console.error('Error refreshing project:', error)
+    }
     router.refresh()
   }
 

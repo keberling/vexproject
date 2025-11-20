@@ -73,6 +73,13 @@ export default function CalendarView() {
         throw new Error('Failed to create event')
       }
 
+      const data = await response.json()
+      
+      // Optimistically update the events list
+      if (data.event) {
+        setEvents(prev => [...prev, data.event])
+      }
+
       setIsDialogOpen(false)
       setFormData({
         title: '',
@@ -83,10 +90,14 @@ export default function CalendarView() {
         location: '',
         projectId: '',
       })
-      fetchEvents()
+      
+      // Refetch to ensure we have the latest data
+      await fetchEvents()
     } catch (error) {
       console.error('Error creating event:', error)
       alert('Failed to create event')
+      // Refetch on error to ensure consistency
+      fetchEvents()
     } finally {
       setLoading(false)
     }

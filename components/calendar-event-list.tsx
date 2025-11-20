@@ -52,6 +52,7 @@ export default function CalendarEventList({ projectId, events, onUpdate }: Calen
         allDay: false,
         location: '',
       })
+      // Call onUpdate to refresh the parent component
       onUpdate()
     } catch (error) {
       console.error('Error creating event:', error)

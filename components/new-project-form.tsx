@@ -75,8 +75,9 @@ export default function NewProjectForm() {
         throw new Error(data.error || 'Failed to create project')
       }
 
+      // Navigate to the new project page
       router.push(`/dashboard/projects/${data.project.id}`)
-      router.refresh()
+      // Refresh will happen automatically on navigation
     } catch (err: any) {
       setError(err.message)
     } finally {
