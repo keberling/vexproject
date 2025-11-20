@@ -8,6 +8,7 @@ import FileUpload from './file-upload'
 import FileList from './file-list'
 import CalendarEventList from './calendar-event-list'
 import CommunicationsList from './communications-list'
+import AddressAutocomplete from './address-autocomplete'
 import { Trash2, Edit2, Save, X } from 'lucide-react'
 import { projectStatusColors, formatStatus } from '@/lib/status-colors'
 
@@ -198,12 +199,14 @@ export default function ProjectDetail({ project: initialProject }: ProjectDetail
               <div className="mt-4 space-y-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Address</label>
-                  <input
-                    type="text"
-                    value={formData.address}
-                    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                    className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2"
-                  />
+                  <div className="mt-1">
+                    <AddressAutocomplete
+                      value={formData.address}
+                      onChange={(value) => setFormData({ ...formData, address: value })}
+                      placeholder="Start typing an address or enter manually"
+                      className="block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2"
+                    />
+                  </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Description</label>
