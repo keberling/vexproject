@@ -180,15 +180,31 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    // Check if user is admin
+    const dbUser = await prisma.user.findUnique({
+      where: { id: user.userId },
+      select: { role: true },
+    })
+
+    const isAdmin = dbUser?.role === 'admin'
+
+    // Find the project
     const project = await prisma.project.findFirst({
       where: {
         id: params.id,
-        userId: user.userId,
       },
     })
 
     if (!project) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 })
+    }
+
+    // Only allow deletion if user is admin OR user is the project owner
+    if (!isAdmin && project.userId !== user.userId) {
+      return NextResponse.json(
+        { error: 'Forbidden - Only admins can delete other users\' projects' },
+        { status: 403 }
+      )
     }
 
     await prisma.project.delete({
