@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google'
 import './globals.css'
 import { ThemeProvider } from '@/components/theme-provider'
 import { SizeProvider } from '@/lib/size-context'
+import NextAuthSessionProvider from '@/components/session-provider'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -41,7 +42,9 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <SizeProvider>
-            {children}
+            <NextAuthSessionProvider>
+              {children}
+            </NextAuthSessionProvider>
           </SizeProvider>
         </ThemeProvider>
       </body>

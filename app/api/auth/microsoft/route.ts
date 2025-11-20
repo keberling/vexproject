@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '../[...nextauth]/route'
+import { auth } from '@/auth'
 import { prisma } from '@/lib/prisma'
 import { generateToken } from '@/lib/auth'
 
@@ -10,7 +9,7 @@ import { generateToken } from '@/lib/auth'
  */
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await auth()
 
     if (!session || !session.user?.email) {
       return NextResponse.redirect(new URL('/?error=Unauthorized', request.url))

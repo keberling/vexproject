@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from 'react'
 import { Milestone, ProjectFile, MilestoneComment } from '@prisma/client'
-import { Plus, Trash2, Check, Clock, AlertCircle, Calendar, Pause, Paperclip, MessageSquare, ChevronDown, ChevronUp, Upload, Download, File, X, Phone, Mail, FileText } from 'lucide-react'
+import { Plus, Trash2, Check, Clock, AlertCircle, Calendar, Pause, Paperclip, MessageSquare, ChevronDown, ChevronUp, Upload, Download, File, X, Phone, Mail, FileText, Image as ImageIcon, Folder, Cloud } from 'lucide-react'
 import * as Dialog from '@radix-ui/react-dialog'
+import Image from 'next/image'
 
 interface MilestoneListProps {
   projectId: string
@@ -591,15 +592,47 @@ export default function MilestoneList({ projectId, milestones, onUpdate }: Miles
                       )}
                       {milestoneFiles[milestone.id] && milestoneFiles[milestone.id].length > 0 ? (
                         <div className="space-y-1">
-                          {milestoneFiles[milestone.id].map((file) => (
+                          {milestoneFiles[milestone.id].map((file) => {
+                            const isImage = file.fileType?.startsWith('image/')
+                            const hasThumbnail = !!file.thumbnailUrl
+                            const isSharePoint = !!(file.sharepointId || file.sharepointUrl)
+                            
+                            return (
                             <div
                               key={file.id}
                               className="flex items-center justify-between p-2 bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700"
                             >
                               <div className="flex items-center gap-2 flex-1 min-w-0">
-                                <File className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                                {isImage && hasThumbnail && file.thumbnailUrl ? (
+                                  <div className="relative h-8 w-8 flex-shrink-0 rounded border border-gray-200 dark:border-gray-700 overflow-hidden bg-gray-100 dark:bg-gray-700">
+                                    <Image
+                                      src={file.thumbnailUrl}
+                                      alt={file.name}
+                                      fill
+                                      className="object-cover"
+                                      sizes="32px"
+                                    />
+                                  </div>
+                                ) : isImage ? (
+                                  <div className="h-8 w-8 flex-shrink-0 rounded border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+                                    <ImageIcon className="h-4 w-4 text-gray-400" />
+                                  </div>
+                                ) : (
+                                  <File className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                                )}
                                 <div className="flex-1 min-w-0">
-                                  <p className="text-xs font-medium text-gray-900 dark:text-white truncate">{file.name}</p>
+                                  <div className="flex items-center gap-1.5">
+                                    <p className="text-xs font-medium text-gray-900 dark:text-white truncate">{file.name}</p>
+                                    {isSharePoint ? (
+                                      <span title="Stored in SharePoint">
+                                        <Cloud className="h-3 w-3 text-blue-500 dark:text-blue-400 flex-shrink-0" />
+                                      </span>
+                                    ) : (
+                                      <span title="Stored locally">
+                                        <Folder className="h-3 w-3 text-gray-500 dark:text-gray-400 flex-shrink-0" />
+                                      </span>
+                                    )}
+                                  </div>
                                   <p className="text-xs text-gray-500 dark:text-gray-400">{formatFileSize(file.fileSize)}</p>
                                 </div>
                               </div>
@@ -611,7 +644,8 @@ export default function MilestoneList({ projectId, milestones, onUpdate }: Miles
                                 <Download className="h-4 w-4" />
                               </a>
                             </div>
-                          ))}
+                            )
+                          })}
                         </div>
                       ) : (
                         <p className="text-xs text-gray-500 dark:text-gray-400">No files attached</p>

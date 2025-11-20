@@ -10,7 +10,8 @@
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:studio": "prisma studio",
-    "db:seed": "tsx prisma/seed.ts"
+    "db:seed": "tsx prisma/seed.ts",
+    "check-env": "node scripts/check-env.js"
   },
   "dependencies": {
     "@azure/msal-node": "^3.8.3",
@@ -37,6 +38,7 @@
     "react-dom": "^18.2.0",
     "react-grid-layout": "^1.5.2",
     "react-hook-form": "^7.49.2",
+    "sharp": "^0.34.5",
     "tailwind-merge": "^2.1.0",
     "zod": "^3.22.4"
   },
@@ -48,6 +50,7 @@
     "@types/react-calendar": "^4.1.0",
     "@types/react-dom": "^18",
     "autoprefixer": "^10.0.1",
+    "dotenv": "^17.2.3",
     "eslint": "^8",
     "eslint-config-next": "14.0.4",
     "postcss": "^8",

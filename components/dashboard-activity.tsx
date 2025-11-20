@@ -118,7 +118,7 @@ export default function DashboardActivity() {
                       <p className="text-sm text-gray-700 dark:text-gray-300">
                         <span className="font-medium">{item.entityType === 'PROJECT' ? 'Project' : 'Milestone'}</span> status changed from{' '}
                         <span className="font-medium">{item.oldStatus ? formatStatus(item.oldStatus) : 'N/A'}</span> to{' '}
-                        <span className="font-medium">{formatStatus(item.newStatus)}</span>
+                        <span className="font-medium">{item.newStatus ? formatStatus(item.newStatus) : 'N/A'}</span>
                       </p>
                       <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                         {item.user.name || item.user.email} • {new Date(item.createdAt).toLocaleString()}

@@ -140,47 +140,56 @@ export default function LoginPage() {
           </div>
         </form>
 
+        {/* Microsoft sign-in button - will work if Azure AD is configured */}
         <div className="mt-6">
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-300 dark:border-gray-600" />
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-300 dark:border-gray-600" />
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-2 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400">
+                  Or continue with
+                </span>
+              </div>
             </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400">
-                Or continue with
-              </span>
-            </div>
-          </div>
 
-          <div className="mt-6">
-            <button
-              type="button"
-              onClick={async () => {
-                setError('')
-                setLoading(true)
-                try {
-                  await signIn('azure-ad', {
-                    callbackUrl: '/api/auth/microsoft',
-                    redirect: true,
-                  })
-                } catch (err: any) {
-                  setError(err.message || 'Failed to sign in with Microsoft')
-                  setLoading(false)
-                }
-              }}
-              disabled={loading}
-              className="w-full flex items-center justify-center gap-3 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <svg className="w-5 h-5" viewBox="0 0 23 23" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M11.5 0L0 4.5V9.5C0 15.5 3.5 20.5 11.5 23C19.5 20.5 23 15.5 23 9.5V4.5L11.5 0Z" fill="#F25022"/>
-                <path d="M11.5 0V11.5H23C23 5.5 19.5 0.5 11.5 0Z" fill="#7FBA00"/>
-                <path d="M11.5 0C3.5 0.5 0 5.5 0 11.5H11.5V0Z" fill="#00A4EF"/>
-                <path d="M11.5 23V11.5H0C0 17.5 3.5 22.5 11.5 23Z" fill="#FFB900"/>
-              </svg>
-              Sign in with Microsoft
-            </button>
+            <div className="mt-6">
+              <button
+                type="button"
+                onClick={async () => {
+                  setError('')
+                  setLoading(true)
+                  try {
+                    const result = await signIn('azure-ad', {
+                      callbackUrl: '/api/auth/microsoft',
+                      redirect: false,
+                    })
+                    
+                    if (result?.error) {
+                      setError(result.error || 'Failed to sign in with Microsoft')
+                      setLoading(false)
+                    } else if (result?.url) {
+                      // Redirect manually
+                      window.location.href = result.url
+                    }
+                  } catch (err: any) {
+                    setError(err.message || 'Failed to sign in with Microsoft')
+                    setLoading(false)
+                  }
+                }}
+                disabled={loading}
+                className="w-full flex items-center justify-center gap-3 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <svg className="w-5 h-5" viewBox="0 0 23 23" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M11.5 0L0 4.5V9.5C0 15.5 3.5 20.5 11.5 23C19.5 20.5 23 15.5 23 9.5V4.5L11.5 0Z" fill="#F25022"/>
+                  <path d="M11.5 0V11.5H23C23 5.5 19.5 0.5 11.5 0Z" fill="#7FBA00"/>
+                  <path d="M11.5 0C3.5 0.5 0 5.5 0 11.5H11.5V0Z" fill="#00A4EF"/>
+                  <path d="M11.5 23V11.5H0C0 17.5 3.5 22.5 11.5 23Z" fill="#FFB900"/>
+                </svg>
+                Sign in with Microsoft
+              </button>
+            </div>
           </div>
-        </div>
       </div>
     </div>
   )

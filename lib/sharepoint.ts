@@ -18,19 +18,20 @@ export async function getOrCreateProjectFolder(
   driveId?: string
 ): Promise<string> {
   try {
-    // Sanitize project name for folder name
-    const folderName = projectName.replace(/[^a-zA-Z0-9-_]/g, '_')
+    // Sanitize project name for folder name (remove invalid characters)
+    const folderName = projectName.replace(/[^a-zA-Z0-9-_ ]/g, '_').trim().replace(/\s+/g, '_')
     const projectsFolder = 'Projects'
-    const projectFolderPath = `${projectsFolder}/${folderName}`
 
-    // If siteId and driveId are provided, use them
-    // Otherwise, use the default SharePoint site
-    let basePath = '/sites'
+    // Determine base path - use siteId if provided, otherwise use default OneDrive
+    let basePath: string
     if (siteId) {
       basePath = `/sites/${siteId}`
+    } else {
+      // Use default OneDrive for Business (user's personal OneDrive)
+      basePath = '/me'
     }
 
-    // Try to get the Projects folder first
+    // Try to get or create the Projects folder first
     let projectsFolderId: string
     try {
       const projectsFolderResponse = await client
@@ -40,21 +41,27 @@ export async function getOrCreateProjectFolder(
       projectsFolderId = projectsFolderResponse.id
     } catch (error: any) {
       // Projects folder doesn't exist, create it
-      if (error.statusCode === 404) {
-        const createResponse = await client
-          .api(`${basePath}/drive/root/children`)
-          .post({
-            name: projectsFolder,
-            folder: {},
-            '@microsoft.graph.conflictBehavior': 'rename',
-          })
-        projectsFolderId = createResponse.id
+      if (error.statusCode === 404 || error.code === 'itemNotFound') {
+        try {
+          const createResponse = await client
+            .api(`${basePath}/drive/root/children`)
+            .post({
+              name: projectsFolder,
+              folder: {},
+              '@microsoft.graph.conflictBehavior': 'rename',
+            })
+          projectsFolderId = createResponse.id
+        } catch (createError: any) {
+          console.error('Error creating Projects folder:', createError)
+          throw createError
+        }
       } else {
+        console.error('Error accessing Projects folder:', error)
         throw error
       }
     }
 
-    // Try to get the project folder
+    // Try to get or create the project-specific folder
     try {
       const projectFolderResponse = await client
         .api(`${basePath}/drive/items/${projectsFolderId}:/${folderName}`)
@@ -63,16 +70,22 @@ export async function getOrCreateProjectFolder(
       return projectFolderResponse.id
     } catch (error: any) {
       // Project folder doesn't exist, create it
-      if (error.statusCode === 404) {
-        const createResponse = await client
-          .api(`${basePath}/drive/items/${projectsFolderId}/children`)
-          .post({
-            name: folderName,
-            folder: {},
-            '@microsoft.graph.conflictBehavior': 'rename',
-          })
-        return createResponse.id
+      if (error.statusCode === 404 || error.code === 'itemNotFound') {
+        try {
+          const createResponse = await client
+            .api(`${basePath}/drive/items/${projectsFolderId}/children`)
+            .post({
+              name: folderName,
+              folder: {},
+              '@microsoft.graph.conflictBehavior': 'rename',
+            })
+          return createResponse.id
+        } catch (createError: any) {
+          console.error('Error creating project folder:', createError)
+          throw createError
+        }
       } else {
+        console.error('Error accessing project folder:', error)
         throw error
       }
     }
@@ -94,16 +107,19 @@ export async function uploadFileToSharePoint(
   driveId?: string
 ): Promise<{ id: string; webUrl: string; downloadUrl: string }> {
   try {
-    // Get or create the project folder
+    // Get or create the project folder (this will create folders if they don't exist)
     const folderId = await getOrCreateProjectFolder(client, projectName, siteId, driveId)
 
-    // Determine base path
-    let basePath = '/sites'
+    // Determine base path - use siteId if provided, otherwise use default OneDrive
+    let basePath: string
     if (siteId) {
       basePath = `/sites/${siteId}`
+    } else {
+      // Use default OneDrive for Business (user's personal OneDrive)
+      basePath = '/me'
     }
 
-    // Upload the file
+    // Upload the file to the project folder
     const uploadResponse = await client
       .api(`${basePath}/drive/items/${folderId}:/${fileName}:/content`)
       .put(file)
@@ -120,6 +136,7 @@ export async function uploadFileToSharePoint(
     }
   } catch (error) {
     console.error('Error uploading file to SharePoint:', error)
+    console.error('Upload error details:', JSON.stringify(error, null, 2))
     throw error
   }
 }

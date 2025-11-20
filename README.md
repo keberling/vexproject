@@ -46,6 +46,20 @@ npm run dev
 
 6. Open [http://localhost:3000](http://localhost:3000) in your browser
 
+## Production Deployment
+
+For production, use these commands:
+
+```bash
+# Build for production
+npm run build
+
+# Start production server
+npm start
+```
+
+See `PRODUCTION_DEPLOYMENT.md` for detailed production deployment instructions.
+
 ## Default Milestones
 
 - Initial Contact

@@ -100,12 +100,13 @@ model ProjectFile {
   fileUrl       String
   fileType      String
   fileSize      Int
+  thumbnailUrl  String?   // URL to thumbnail for image files
   uploadedAt    DateTime  @default(now())
   projectId     String
   project       Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
   milestoneId   String?
   milestone     Milestone? @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
-  // SharePoint integration fields (for future use)
+  // SharePoint integration fields
   sharepointId  String?
   sharepointUrl String?
 }

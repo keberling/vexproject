@@ -15,14 +15,30 @@ This guide will help you set up Microsoft Single Sign-On (SSO) and SharePoint fi
 3. Click **New registration**
 4. Fill in the details:
    - **Name**: VEX Project Management (or your preferred name)
-   - **Supported account types**: Choose based on your needs:
-     - **Single tenant**: Only users in your organization
-     - **Multi-tenant**: Users from any organization
+   - **Supported account types**: **IMPORTANT** - Select **"Accounts in this organizational directory only"** (Single tenant)
+     - ⚠️ **Do NOT select "Multi-tenant"** - This app is configured for single-tenant only
+     - ⚠️ **Do NOT select "Accounts in any organizational directory"** - This will cause errors
    - **Redirect URI**: 
      - Type: **Web**
      - URI: `http://localhost:3000/api/auth/callback/azure-ad` (for development)
      - For production: `https://yourdomain.com/api/auth/callback/azure-ad`
+     - ⚠️ **CRITICAL**: This must match EXACTLY or you'll get "No reply address is registered" error
 5. Click **Register**
+
+**Important**: After registration, make sure your app is set to **Single tenant**. You can verify this in:
+- **Authentication** > **Supported account types** should show "My organization only"
+
+### Adding Redirect URI After Registration
+
+If you need to add or modify the redirect URI after registration:
+
+1. Go to your app registration in Azure Portal
+2. Click **Authentication** in the left menu
+3. Under **Platform configurations**, click **Add a platform**
+4. Select **Web**
+5. Add the redirect URI: `http://localhost:3000/api/auth/callback/azure-ad`
+6. Click **Configure**
+7. **IMPORTANT**: Make sure the redirect URI is listed under "Redirect URIs" and is enabled
 
 ## Step 2: Configure API Permissions
 

@@ -14,18 +14,20 @@ import { projectStatusColors, formatStatus } from '@/lib/status-colors'
 interface ProjectDetailProps {
   project: Project & {
     milestones: (Milestone & {
-      comments?: Array<{
-        id: string
-        content: string
-        createdAt: Date
+      comments?: (import('@prisma/client').MilestoneComment & {
         user: {
           id: string
           name: string | null
           email: string
         }
-      }>
+      })[]
     })[]
-    files: ProjectFile[]
+    files: (ProjectFile & {
+      milestone: {
+        id: string
+        name: string
+      } | null
+    })[]
     calendarEvents: CalendarEvent[]
     communications?: Array<{
       id: string

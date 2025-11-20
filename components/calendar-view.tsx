@@ -8,6 +8,8 @@ import { CalendarEvent } from '@prisma/client'
 import { Plus, Trash2 } from 'lucide-react'
 import * as Dialog from '@radix-ui/react-dialog'
 
+type CalendarValue = Date | null | [Date | null, Date | null]
+
 export default function CalendarView() {
   const [date, setDate] = useState(new Date())
   const [events, setEvents] = useState<(CalendarEvent & { project?: { id: string; name: string } | null })[]>([])
@@ -40,14 +42,19 @@ export default function CalendarView() {
     }
   }
 
-  const handleDateChange = (newDate: Date) => {
-    setDate(newDate)
+  const handleDateChange = (value: CalendarValue) => {
+    // Handle single date selection (not range)
+    if (!value) return
+    const newDate = Array.isArray(value) ? value[0] : value
+    if (!newDate) return
+    const dateToUse = newDate instanceof Date ? newDate : new Date(newDate)
+    setDate(dateToUse)
     const dayEvents = events.filter((event) => {
       const eventDate = new Date(event.startDate)
       return (
-        eventDate.getDate() === newDate.getDate() &&
-        eventDate.getMonth() === newDate.getMonth() &&
-        eventDate.getFullYear() === newDate.getFullYear()
+        eventDate.getDate() === dateToUse.getDate() &&
+        eventDate.getMonth() === dateToUse.getMonth() &&
+        eventDate.getFullYear() === dateToUse.getFullYear()
       )
     })
     setSelectedEvents(dayEvents)

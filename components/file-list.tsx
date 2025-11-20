@@ -2,11 +2,15 @@
 
 import { useState } from 'react'
 import { ProjectFile, Milestone } from '@prisma/client'
-import { Download, Trash2, File, Filter, X } from 'lucide-react'
+import { Download, Trash2, File, Filter, X, Image as ImageIcon, Folder, Cloud } from 'lucide-react'
+import Image from 'next/image'
 
 interface FileListProps {
   files: (ProjectFile & {
-    milestone: Milestone | null
+    milestone: {
+      id: string
+      name: string
+    } | null
   })[]
   milestones: Milestone[]
   onDelete: () => void
@@ -82,27 +86,57 @@ export default function FileList({ files, milestones, onDelete }: FileListProps)
             {filterMilestoneId ? 'No files for this milestone' : 'No files uploaded yet.'}
           </p>
         ) : (
-          filteredFiles.map((file) => (
-          <div
-            key={file.id}
-            className="flex items-center justify-between p-3 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
-          >
-            <div className="flex items-center gap-3 flex-1 min-w-0">
-              <File className="h-5 w-5 text-gray-400 flex-shrink-0" />
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{file.name}</p>
-                  {file.milestone && (
-                    <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300">
-                      {file.milestone.name}
-                    </span>
-                  )}
+          filteredFiles.map((file) => {
+            const isImage = file.fileType.startsWith('image/')
+            const hasThumbnail = !!file.thumbnailUrl
+            const isSharePoint = !!(file.sharepointId || file.sharepointUrl)
+            
+            return (
+            <div
+              key={file.id}
+              className="flex items-center justify-between p-3 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+            >
+              <div className="flex items-center gap-3 flex-1 min-w-0">
+                {isImage && hasThumbnail && file.thumbnailUrl ? (
+                  <div className="relative h-12 w-12 flex-shrink-0 rounded border border-gray-200 dark:border-gray-700 overflow-hidden bg-gray-100 dark:bg-gray-700">
+                    <Image
+                      src={file.thumbnailUrl}
+                      alt={file.name}
+                      fill
+                      className="object-cover"
+                      sizes="48px"
+                    />
+                  </div>
+                ) : isImage ? (
+                  <div className="h-12 w-12 flex-shrink-0 rounded border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+                    <ImageIcon className="h-6 w-6 text-gray-400" />
+                  </div>
+                ) : (
+                  <File className="h-5 w-5 text-gray-400 flex-shrink-0" />
+                )}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{file.name}</p>
+                    {isSharePoint ? (
+                      <span title="Stored in SharePoint">
+                        <Cloud className="h-4 w-4 text-blue-500 dark:text-blue-400" />
+                      </span>
+                    ) : (
+                      <span title="Stored locally">
+                        <Folder className="h-4 w-4 text-gray-500 dark:text-gray-400" />
+                      </span>
+                    )}
+                    {file.milestone && (
+                      <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300">
+                        {file.milestone.name}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    {formatFileSize(file.fileSize)} • {new Date(file.uploadedAt).toLocaleDateString()}
+                  </p>
                 </div>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {formatFileSize(file.fileSize)} • {new Date(file.uploadedAt).toLocaleDateString()}
-                </p>
               </div>
-            </div>
             <div className="flex items-center gap-2">
               <a
                 href={file.fileUrl}
@@ -119,7 +153,8 @@ export default function FileList({ files, milestones, onDelete }: FileListProps)
               </button>
             </div>
           </div>
-          ))
+          )
+          })
         )}
       </div>
     </div>
