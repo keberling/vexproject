@@ -49,13 +49,18 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // If template is provided, fetch it to create milestones
+    // If template is provided, fetch it to create milestones and tasks
     let templateMilestones: any[] = []
     if (templateId) {
       const template = await prisma.projectTemplate.findUnique({
         where: { id: templateId },
         include: {
           templateMilestones: {
+            include: {
+              tasks: {
+                orderBy: { order: 'asc' },
+              },
+            },
             orderBy: { order: 'asc' },
           },
         },
@@ -65,7 +70,15 @@ export async function POST(request: NextRequest) {
         templateMilestones = template.templateMilestones.map((tm) => ({
           name: tm.name,
           description: tm.description,
+          category: tm.category,
           status: 'PENDING',
+          tasks: {
+            create: tm.tasks.map((tt) => ({
+              name: tt.name,
+              description: tt.description,
+              status: 'PENDING',
+            })),
+          },
         }))
       }
     }
@@ -86,7 +99,11 @@ export async function POST(request: NextRequest) {
         },
       },
       include: {
-        milestones: true,
+        milestones: {
+          include: {
+            tasks: true,
+          },
+        },
       },
     })
 

@@ -16,6 +16,12 @@ export default async function ProjectsPage() {
     include: {
       milestones: {
         include: {
+          tasks: {
+            select: {
+              id: true,
+              status: true,
+            },
+          },
           _count: {
             select: { comments: true },
           },

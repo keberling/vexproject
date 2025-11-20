@@ -65,6 +65,7 @@ model Milestone {
   id            String    @id @default(cuid())
   name          String
   description   String?
+  category      String?         // Category/group for milestones
   status        String          @default("PENDING")
   dueDate       DateTime?
   completedDate DateTime?
@@ -131,11 +132,13 @@ model TemplateMilestone {
   id            String    @id @default(cuid())
   name          String
   description   String?
+  category      String?         // Category/group for milestone
   order         Int       @default(0)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   templateId    String
   template      ProjectTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  tasks         TemplateTask[]
 }
 
 model MilestoneComment {
@@ -207,6 +210,7 @@ model Task {
   assignedToId  String?
   assignedTo    User?     @relation(fields: [assignedToId], references: [id], onDelete: SetNull)
   comments      TaskComment[]
+  files         TaskFile[]
 }
 
 // TaskStatus enum values (stored as strings in SQLite):
@@ -221,5 +225,32 @@ model TaskComment {
   task          Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
   userId        String
   user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model TemplateTask {
+  id            String    @id @default(cuid())
+  name          String
+  description   String?
+  order         Int       @default(0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  templateMilestoneId String
+  templateMilestone TemplateMilestone @relation(fields: [templateMilestoneId], references: [id], onDelete: Cascade)
+}
+
+model TaskFile {
+  id            String    @id @default(cuid())
+  name          String
+  fileName      String
+  fileUrl       String
+  fileType      String
+  fileSize      Int
+  thumbnailUrl  String?   // URL to thumbnail for image files
+  uploadedAt    DateTime  @default(now())
+  taskId        String
+  task          Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  // SharePoint integration fields
+  sharepointId  String?
+  sharepointUrl String?
 }
 

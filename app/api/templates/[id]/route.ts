@@ -17,6 +17,11 @@ export async function GET(
       where: { id: params.id },
       include: {
         templateMilestones: {
+          include: {
+            tasks: {
+              orderBy: { order: 'asc' },
+            },
+          },
           orderBy: { order: 'asc' },
         },
       },
@@ -76,7 +81,14 @@ export async function PUT(
       })
     }
 
-    // Delete existing milestones and create new ones
+    // Delete existing milestones and tasks, then create new ones
+    await prisma.templateTask.deleteMany({
+      where: {
+        templateMilestone: {
+          templateId: params.id,
+        },
+      },
+    })
     await prisma.templateMilestone.deleteMany({
       where: { templateId: params.id },
     })
@@ -91,12 +103,25 @@ export async function PUT(
           create: (milestones || []).map((milestone: any, index: number) => ({
             name: milestone.name,
             description: milestone.description || null,
+            category: milestone.category || null,
             order: milestone.order !== undefined ? milestone.order : index,
+            tasks: {
+              create: (milestone.tasks || []).map((task: any, taskIndex: number) => ({
+                name: task.name,
+                description: task.description || null,
+                order: task.order !== undefined ? task.order : taskIndex,
+              })),
+            },
           })),
         },
       },
       include: {
         templateMilestones: {
+          include: {
+            tasks: {
+              orderBy: { order: 'asc' },
+            },
+          },
           orderBy: { order: 'asc' },
         },
       },

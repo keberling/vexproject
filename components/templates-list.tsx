@@ -2,14 +2,23 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, Trash2, Edit2, Star, FileText } from 'lucide-react'
+import { Plus, Trash2, Edit2, Star, FileText, Download, Upload, Check } from 'lucide-react'
 import * as Dialog from '@radix-ui/react-dialog'
+
+interface TemplateTask {
+  id: string
+  name: string
+  description: string | null
+  order: number
+}
 
 interface TemplateMilestone {
   id: string
   name: string
   description: string | null
+  category: string | null
   order: number
+  tasks?: TemplateTask[]
 }
 
 interface Template {
@@ -37,7 +46,7 @@ export default function TemplatesList({ templates: initialTemplates }: Templates
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    milestones: [{ name: '', description: '', order: 0 }],
+    milestones: [{ name: '', description: '', category: '', tasks: [{ name: '', description: '', order: 0 }], order: 0 }],
     isDefault: false,
   })
 
@@ -78,6 +87,12 @@ export default function TemplatesList({ templates: initialTemplates }: Templates
             .map((m, index) => ({
               name: m.name,
               description: m.description || undefined,
+              category: m.category || undefined,
+              tasks: (m.tasks || []).filter(t => t.name.trim()).map((t, taskIndex) => ({
+                name: t.name,
+                description: t.description || undefined,
+                order: taskIndex,
+              })),
               order: index,
             })),
           isDefault: formData.isDefault,
@@ -93,7 +108,7 @@ export default function TemplatesList({ templates: initialTemplates }: Templates
       setFormData({
         name: '',
         description: '',
-        milestones: [{ name: '', description: '', order: 0 }],
+        milestones: [{ name: '', description: '', category: '', tasks: [{ name: '', description: '', order: 0 }], order: 0 }],
         isDefault: false,
       })
       router.refresh()
@@ -109,18 +124,24 @@ export default function TemplatesList({ templates: initialTemplates }: Templates
     if (!template) return
 
     setEditingTemplateId(templateId)
-    setFormData({
-      name: template.name,
-      description: template.description || '',
-      milestones: template.templateMilestones.length > 0
-        ? template.templateMilestones.map(m => ({
-            name: m.name,
-            description: m.description || '',
-            order: m.order,
-          }))
-        : [{ name: '', description: '', order: 0 }],
-      isDefault: template.isDefault,
-    })
+      setFormData({
+        name: template.name,
+        description: template.description || '',
+        milestones: template.templateMilestones.length > 0
+          ? template.templateMilestones.map(m => ({
+              name: m.name,
+              description: m.description || '',
+              category: m.category || '',
+              tasks: (m.tasks || []).map(t => ({
+                name: t.name,
+                description: t.description || '',
+                order: t.order,
+              })),
+              order: m.order,
+            }))
+          : [{ name: '', description: '', category: '', tasks: [{ name: '', description: '', order: 0 }], order: 0 }],
+        isDefault: template.isDefault,
+      })
     setIsEditDialogOpen(true)
   }
 
@@ -142,6 +163,12 @@ export default function TemplatesList({ templates: initialTemplates }: Templates
             .map((m, index) => ({
               name: m.name,
               description: m.description || undefined,
+              category: m.category || undefined,
+              tasks: (m.tasks || []).filter(t => t.name.trim()).map((t, taskIndex) => ({
+                name: t.name,
+                description: t.description || undefined,
+                order: taskIndex,
+              })),
               order: index,
             })),
           isDefault: formData.isDefault,
@@ -158,7 +185,7 @@ export default function TemplatesList({ templates: initialTemplates }: Templates
       setFormData({
         name: '',
         description: '',
-        milestones: [{ name: '', description: '', order: 0 }],
+        milestones: [{ name: '', description: '', category: '', tasks: [{ name: '', description: '', order: 0 }], order: 0 }],
         isDefault: false,
       })
       router.refresh()
@@ -172,8 +199,78 @@ export default function TemplatesList({ templates: initialTemplates }: Templates
   const addMilestone = () => {
     setFormData({
       ...formData,
-      milestones: [...formData.milestones, { name: '', description: '', order: formData.milestones.length }],
+      milestones: [...formData.milestones, { name: '', description: '', category: '', tasks: [{ name: '', description: '', order: 0 }], order: formData.milestones.length }],
     })
+  }
+
+  const addTask = (milestoneIndex: number) => {
+    const updated = [...formData.milestones]
+    updated[milestoneIndex] = {
+      ...updated[milestoneIndex],
+      tasks: [...(updated[milestoneIndex].tasks || []), { name: '', description: '', order: (updated[milestoneIndex].tasks || []).length }],
+    }
+    setFormData({ ...formData, milestones: updated })
+  }
+
+  const removeTask = (milestoneIndex: number, taskIndex: number) => {
+    const updated = [...formData.milestones]
+    updated[milestoneIndex] = {
+      ...updated[milestoneIndex],
+      tasks: (updated[milestoneIndex].tasks || []).filter((_, i) => i !== taskIndex),
+    }
+    setFormData({ ...formData, milestones: updated })
+  }
+
+  const updateTask = (milestoneIndex: number, taskIndex: number, field: string, value: string) => {
+    const updated = [...formData.milestones]
+    const tasks = [...(updated[milestoneIndex].tasks || [])]
+    tasks[taskIndex] = { ...tasks[taskIndex], [field]: value }
+    updated[milestoneIndex] = { ...updated[milestoneIndex], tasks }
+    setFormData({ ...formData, milestones: updated })
+  }
+
+  const handleExport = async (templateId?: string) => {
+    try {
+      const url = templateId ? `/api/templates/export?id=${templateId}` : '/api/templates/export'
+      const response = await fetch(url)
+      if (!response.ok) throw new Error('Failed to export')
+      const blob = await response.blob()
+      const downloadUrl = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = downloadUrl
+      a.download = templateId ? `${templates.find(t => t.id === templateId)?.name || 'template'}.json` : 'templates_export.json'
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(downloadUrl)
+      document.body.removeChild(a)
+    } catch (error) {
+      console.error('Error exporting:', error)
+      alert('Failed to export template')
+    }
+  }
+
+  const handleImport = async (file: File) => {
+    try {
+      const text = await file.text()
+      const data = JSON.parse(text)
+      
+      const response = await fetch('/api/templates/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to import')
+      }
+
+      alert('Template(s) imported successfully!')
+      router.refresh()
+    } catch (error: any) {
+      console.error('Error importing:', error)
+      alert(error.message || 'Failed to import template')
+    }
   }
 
   const removeMilestone = (index: number) => {
@@ -191,7 +288,28 @@ export default function TemplatesList({ templates: initialTemplates }: Templates
 
   return (
     <div className="mt-8">
-      <div className="mb-4 flex justify-end">
+      <div className="mb-4 flex justify-end gap-2">
+        <label className="inline-flex items-center rounded-md bg-green-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-green-500 cursor-pointer">
+          <Upload className="h-4 w-4 mr-1" />
+          Import
+          <input
+            type="file"
+            className="hidden"
+            accept=".json"
+            onChange={(e) => {
+              const file = e.target.files?.[0]
+              if (file) handleImport(file)
+              e.target.value = ''
+            }}
+          />
+        </label>
+        <button
+          onClick={() => handleExport()}
+          className="inline-flex items-center rounded-md bg-purple-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-purple-500"
+        >
+          <Download className="h-4 w-4 mr-1" />
+          Export All
+        </button>
         <Dialog.Root open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <Dialog.Trigger asChild>
             <button className="inline-flex items-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500">
@@ -275,6 +393,56 @@ export default function TemplatesList({ templates: initialTemplates }: Templates
                             className="block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2"
                             placeholder="Description (optional)"
                           />
+                          <input
+                            type="text"
+                            value={milestone.category || ''}
+                            onChange={(e) => updateMilestone(index, 'category', e.target.value)}
+                            className="block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2"
+                            placeholder="Category (optional)"
+                          />
+                          <div className="mt-2">
+                            <div className="flex items-center justify-between mb-1">
+                              <label className="text-xs font-medium text-gray-700 dark:text-gray-300">Tasks</label>
+                              <button
+                                type="button"
+                                onClick={() => addTask(index)}
+                                className="text-xs text-blue-600 hover:text-blue-500 dark:text-blue-400"
+                              >
+                                + Add Task
+                              </button>
+                            </div>
+                            <div className="space-y-1">
+                              {(milestone.tasks || []).map((task, taskIndex) => (
+                                <div key={taskIndex} className="flex gap-1 items-start">
+                                  <div className="flex-1 space-y-1">
+                                    <input
+                                      type="text"
+                                      value={task.name}
+                                      onChange={(e) => updateTask(index, taskIndex, 'name', e.target.value)}
+                                      className="block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-xs bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-2 py-1"
+                                      placeholder="Task name"
+                                    />
+                                    <input
+                                      type="text"
+                                      value={task.description || ''}
+                                      onChange={(e) => updateTask(index, taskIndex, 'description', e.target.value)}
+                                      className="block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-xs bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-2 py-1"
+                                      placeholder="Task description (optional)"
+                                    />
+                                  </div>
+                                  {(milestone.tasks || []).length > 1 && (
+                                    <button
+                                      type="button"
+                                      onClick={() => removeTask(index, taskIndex)}
+                                      className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 mt-1"
+                                    >
+                                      <Trash2 className="h-3 w-3" />
+                                    </button>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
                         </div>
                         {formData.milestones.length > 1 && (
                           <button
@@ -390,6 +558,56 @@ export default function TemplatesList({ templates: initialTemplates }: Templates
                           className="block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2"
                           placeholder="Description (optional)"
                         />
+                        <input
+                          type="text"
+                          value={milestone.category || ''}
+                          onChange={(e) => updateMilestone(index, 'category', e.target.value)}
+                          className="block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2"
+                          placeholder="Category (optional)"
+                        />
+                        <div className="mt-2">
+                          <div className="flex items-center justify-between mb-1">
+                            <label className="text-xs font-medium text-gray-700 dark:text-gray-300">Tasks</label>
+                            <button
+                              type="button"
+                              onClick={() => addTask(index)}
+                              className="text-xs text-blue-600 hover:text-blue-500 dark:text-blue-400"
+                            >
+                              + Add Task
+                            </button>
+                          </div>
+                          <div className="space-y-1">
+                            {(milestone.tasks || []).map((task, taskIndex) => (
+                              <div key={taskIndex} className="flex gap-1 items-start">
+                                <div className="flex-1 space-y-1">
+                                  <input
+                                    type="text"
+                                    value={task.name}
+                                    onChange={(e) => updateTask(index, taskIndex, 'name', e.target.value)}
+                                    className="block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-xs bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-2 py-1"
+                                    placeholder="Task name"
+                                  />
+                                  <input
+                                    type="text"
+                                    value={task.description || ''}
+                                    onChange={(e) => updateTask(index, taskIndex, 'description', e.target.value)}
+                                    className="block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-xs bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-2 py-1"
+                                    placeholder="Task description (optional)"
+                                  />
+                                </div>
+                                {(milestone.tasks || []).length > 1 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => removeTask(index, taskIndex)}
+                                    className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 mt-1"
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </button>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
                       </div>
                       {formData.milestones.length > 1 && (
                         <button
@@ -413,7 +631,7 @@ export default function TemplatesList({ templates: initialTemplates }: Templates
                       setFormData({
                         name: '',
                         description: '',
-                        milestones: [{ name: '', description: '', order: 0 }],
+                        milestones: [{ name: '', description: '', category: '', tasks: [{ name: '', description: '', order: 0 }], order: 0 }],
                         isDefault: false,
                       })
                     }}
@@ -487,6 +705,13 @@ export default function TemplatesList({ templates: initialTemplates }: Templates
                   )}
                 </div>
                 <div className="mt-4 flex justify-end gap-2">
+                  <button
+                    onClick={() => handleExport(template.id)}
+                    className="text-purple-600 hover:text-purple-800 dark:text-purple-400 dark:hover:text-purple-300"
+                    title="Export template"
+                  >
+                    <Download className="h-4 w-4" />
+                  </button>
                   <button
                     onClick={() => handleEdit(template.id)}
                     className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"

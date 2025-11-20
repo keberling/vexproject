@@ -49,9 +49,22 @@ export default function ProjectCard({ project }: ProjectCardProps) {
   const router = useRouter()
   const [uploading, setUploading] = useState(false)
 
-  const completedMilestones = project.milestones.filter((m) => m.status === 'COMPLETED').length
+  // Calculate progress based on tasks within milestones
+  const milestoneProgress = project.milestones.map((milestone) => {
+    const tasks = (milestone as any).tasks || []
+    const totalTasks = tasks.length
+    const completedTasks = tasks.filter((t: any) => t.status === 'COMPLETED').length
+    return totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0
+  })
+  const overallProgress = milestoneProgress.length > 0 
+    ? milestoneProgress.reduce((sum, p) => sum + p, 0) / milestoneProgress.length 
+    : 0
+  
+  const completedMilestones = project.milestones.filter((m) => {
+    const tasks = (m as any).tasks || []
+    return tasks.length > 0 && tasks.every((t: any) => t.status === 'COMPLETED')
+  }).length
   const totalMilestones = project.milestones.length
-  const progress = totalMilestones > 0 ? (completedMilestones / totalMilestones) * 100 : 0
 
   // Group milestones by status for color-coded progress bar
   const milestoneStatusCounts = project.milestones.reduce((acc, milestone) => {
@@ -162,45 +175,38 @@ export default function ProjectCard({ project }: ProjectCardProps) {
         <Link href={`/dashboard/projects/${project.id}`}>
           <div className="mt-4">
             <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 mb-2">
-              <span>Progress</span>
-              <span>{completedMilestones}/{totalMilestones} milestones</span>
+              <span>Progress (Tasks)</span>
+              <span>{Math.round(overallProgress)}%</span>
             </div>
             {totalMilestones > 0 ? (
               <>
-                {/* Status counts with icons */}
-                <div className="flex items-center gap-3 flex-wrap mb-2">
-                  {Object.entries(milestoneStatusCounts)
-                    .filter(([_, count]) => count > 0)
-                    .map(([status, count]) => {
-                      const Icon = statusIcons[status as keyof typeof statusIcons] || Clock
-                      const iconColor = statusIconColors[status] || statusIconColors.PENDING
-                      const label = statusLabels[status] || status
-                      return (
-                        <div
-                          key={status}
-                          className="flex items-center gap-1.5 text-xs"
-                          title={`${label}: ${count}`}
-                        >
-                          <Icon className={`h-3.5 w-3.5 ${iconColor}`} />
-                          <span className="text-gray-600 dark:text-gray-400 font-medium">{count}</span>
-                        </div>
-                      )
-                    })}
-                </div>
-                {/* Progress bar */}
-                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5 flex overflow-hidden">
-                  {Object.entries(milestoneStatusCounts).map(([status, count]) => {
-                    const width = (count / totalMilestones) * 100
-                    const color = milestoneProgressColors[status] || milestoneProgressColors.PENDING
+                {/* Milestone progress bars */}
+                <div className="space-y-1 mb-2">
+                  {project.milestones.slice(0, 3).map((milestone) => {
+                    const tasks = (milestone as any).tasks || []
+                    const totalTasks = tasks.length
+                    const completedTasks = tasks.filter((t: any) => t.status === 'COMPLETED').length
+                    const taskProgress = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0
                     return (
-                      <div
-                        key={status}
-                        className={`${color} h-full transition-all`}
-                        style={{ width: `${width}%` }}
-                        title={`${status}: ${count}`}
-                      />
+                      <div key={milestone.id} className="space-y-0.5">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-gray-600 dark:text-gray-400 truncate flex-1">{milestone.name}</span>
+                          <span className="text-gray-500 dark:text-gray-500 ml-2">{Math.round(taskProgress)}%</span>
+                        </div>
+                        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
+                          <div 
+                            className="bg-blue-600 h-1.5 rounded-full transition-all"
+                            style={{ width: `${taskProgress}%` }}
+                          />
+                        </div>
+                      </div>
                     )
                   })}
+                  {project.milestones.length > 3 && (
+                    <div className="text-xs text-gray-400 dark:text-gray-500">
+                      +{project.milestones.length - 3} more milestones
+                    </div>
+                  )}
                 </div>
               </>
             ) : (

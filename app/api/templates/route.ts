@@ -13,6 +13,11 @@ export async function GET(request: NextRequest) {
     const templates = await prisma.projectTemplate.findMany({
       include: {
         templateMilestones: {
+          include: {
+            tasks: {
+              orderBy: { order: 'asc' },
+            },
+          },
           orderBy: { order: 'asc' },
         },
       },
@@ -67,12 +72,25 @@ export async function POST(request: NextRequest) {
           create: (milestones || []).map((milestone: any, index: number) => ({
             name: milestone.name,
             description: milestone.description || null,
+            category: milestone.category || null,
             order: milestone.order !== undefined ? milestone.order : index,
+            tasks: {
+              create: (milestone.tasks || []).map((task: any, taskIndex: number) => ({
+                name: task.name,
+                description: task.description || null,
+                order: task.order !== undefined ? task.order : taskIndex,
+              })),
+            },
           })),
         },
       },
       include: {
         templateMilestones: {
+          include: {
+            tasks: {
+              orderBy: { order: 'asc' },
+            },
+          },
           orderBy: { order: 'asc' },
         },
       },

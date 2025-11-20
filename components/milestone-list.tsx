@@ -162,7 +162,17 @@ export default function MilestoneList({ projectId, milestones, onUpdate }: Miles
   const [users, setUsers] = useState<Array<{ id: string; name: string | null; email: string; provider: string | null }>>([])
   const [taskFormData, setTaskFormData] = useState<Record<string, { name: string; description: string; dueDate: string; assignedToId: string }>>({})
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState<Record<string, boolean>>({})
+  const [taskFiles, setTaskFiles] = useState<Record<string, Array<{ id: string; name: string; fileName: string; fileUrl: string; fileType: string; fileSize: number; thumbnailUrl: string | null }>>>({})
+  const [uploadingTaskFiles, setUploadingTaskFiles] = useState<Record<string, boolean>>({})
   const localTaskUpdates = useRef<Set<string>>(new Set()) // Track milestones with local task updates
+
+  // Calculate milestone progress based on tasks
+  const calculateMilestoneProgress = (milestoneId: string): number => {
+    const milestoneTasks = tasks[milestoneId] || []
+    if (milestoneTasks.length === 0) return 0
+    const completedTasks = milestoneTasks.filter(t => t.status === 'COMPLETED').length
+    return Math.round((completedTasks / milestoneTasks.length) * 100)
+  }
 
   // Fetch users for assignment
   useEffect(() => {
@@ -525,6 +535,7 @@ export default function MilestoneList({ projectId, milestones, onUpdate }: Miles
 
     setLoading(true)
     try {
+      // Create task without assignment initially
       const response = await fetch('/api/tasks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -533,7 +544,7 @@ export default function MilestoneList({ projectId, milestones, onUpdate }: Miles
           name: formData.name,
           description: formData.description || null,
           dueDate: formData.dueDate || null,
-          assignedToId: formData.assignedToId || null,
+          assignedToId: null, // Don't assign on creation
         }),
       })
 
@@ -558,6 +569,86 @@ export default function MilestoneList({ projectId, milestones, onUpdate }: Miles
       setLoading(false)
     }
   }
+
+  const handleAssignTask = async (taskId: string, milestoneId: string, assignedToId: string | null) => {
+    try {
+      await handleUpdateTask(taskId, milestoneId, { assignedToId })
+    } catch (error) {
+      console.error('Error assigning task:', error)
+      alert('Failed to assign task')
+    }
+  }
+
+  const handleTaskFileUpload = async (taskId: string, milestoneId: string, file: File) => {
+    setUploadingTaskFiles(prev => ({ ...prev, [taskId]: true }))
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+
+      const response = await fetch(`/api/tasks/${taskId}/files`, {
+        method: 'POST',
+        body: formData,
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to upload file')
+      }
+
+      const data = await response.json()
+      setTaskFiles(prev => ({
+        ...prev,
+        [taskId]: [...(prev[taskId] || []), data.file],
+      }))
+      onUpdate()
+    } catch (error) {
+      console.error('Error uploading task file:', error)
+      alert('Failed to upload file')
+    } finally {
+      setUploadingTaskFiles(prev => ({ ...prev, [taskId]: false }))
+    }
+  }
+
+  const handleDeleteTaskFile = async (taskId: string, fileId: string) => {
+    try {
+      const response = await fetch(`/api/tasks/${taskId}/files/${fileId}`, {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to delete file')
+      }
+
+      setTaskFiles(prev => ({
+        ...prev,
+        [taskId]: (prev[taskId] || []).filter(f => f.id !== fileId),
+      }))
+      onUpdate()
+    } catch (error) {
+      console.error('Error deleting task file:', error)
+      alert('Failed to delete file')
+    }
+  }
+
+  // Fetch task files when task is expanded
+  useEffect(() => {
+    const fetchTaskFiles = async (taskId: string) => {
+      try {
+        const response = await fetch(`/api/tasks/${taskId}/files`)
+        if (response.ok) {
+          const data = await response.json()
+          setTaskFiles(prev => ({ ...prev, [taskId]: data.files || [] }))
+        }
+      } catch (error) {
+        console.error('Error fetching task files:', error)
+      }
+    }
+
+    expandedTasks.forEach(taskId => {
+      if (!taskFiles[taskId]) {
+        fetchTaskFiles(taskId)
+      }
+    })
+  }, [expandedTasks])
 
   const handleUpdateTask = async (taskId: string, milestoneId: string, updates: any) => {
     try {
@@ -743,8 +834,15 @@ export default function MilestoneList({ projectId, milestones, onUpdate }: Miles
                 key={milestone.id}
                 className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden"
               >
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4">
-                  <div className="flex items-center gap-3 flex-1">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 relative">
+                  {/* Floating Progress Bar */}
+                  <div className="absolute top-0 left-0 right-0 h-1 bg-gray-200 dark:bg-gray-700">
+                    <div 
+                      className="h-full bg-blue-600 transition-all duration-300"
+                      style={{ width: `${calculateMilestoneProgress(milestone.id)}%` }}
+                    />
+                  </div>
+                  <div className="flex items-center gap-3 flex-1 mt-1">
                     <StatusIcon className={`h-5 w-5 ${
                       milestone.status === 'COMPLETED' ? 'text-green-600' : 
                       milestone.status === 'PENDING' ? 'text-red-600' :
@@ -757,6 +855,14 @@ export default function MilestoneList({ projectId, milestones, onUpdate }: Miles
                     <div className="flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
                         <h3 className="text-sm font-medium text-gray-900 dark:text-white">{milestone.name}</h3>
+                        {(milestone as any).category && (
+                          <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300">
+                            {(milestone as any).category}
+                          </span>
+                        )}
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                          {calculateMilestoneProgress(milestone.id)}% ({tasks[milestone.id]?.filter(t => t.status === 'COMPLETED').length || 0}/{tasks[milestone.id]?.length || 0})
+                        </span>
                         <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${statusColors[milestone.status as keyof typeof statusColors] || statusColors.PENDING}`}>
                           {statusLabels[milestone.status as keyof typeof statusLabels] || milestone.status}
                         </span>
@@ -1208,26 +1314,6 @@ export default function MilestoneList({ projectId, milestones, onUpdate }: Miles
                                 </div>
                                 <div>
                                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    Assign To
-                                  </label>
-                                  <select
-                                    value={taskFormData[milestone.id]?.assignedToId || ''}
-                                    onChange={(e) => setTaskFormData(prev => ({
-                                      ...prev,
-                                      [milestone.id]: { ...(prev[milestone.id] || { name: '', description: '', dueDate: '', assignedToId: '' }), assignedToId: e.target.value }
-                                    }))}
-                                    className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2"
-                                  >
-                                    <option value="">Unassigned</option>
-                                    {users.map((user) => (
-                                      <option key={user.id} value={user.id}>
-                                        {user.name || user.email}
-                                      </option>
-                                    ))}
-                                  </select>
-                                </div>
-                                <div>
-                                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                                     Due Date
                                   </label>
                                   <input
@@ -1288,7 +1374,7 @@ export default function MilestoneList({ projectId, milestones, onUpdate }: Miles
                                         <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-xs font-medium ${taskStatusColors[task.status as keyof typeof taskStatusColors] || taskStatusColors.PENDING}`}>
                                           {taskStatusLabels[task.status as keyof typeof taskStatusLabels] || task.status}
                                         </span>
-                                        {task.assignedTo && (
+                                        {task.assignedTo ? (
                                           <div className="flex items-center gap-1">
                                             <UserAvatar
                                               userId={task.assignedTo.id}
@@ -1301,6 +1387,24 @@ export default function MilestoneList({ projectId, milestones, onUpdate }: Miles
                                               {task.assignedTo.name || task.assignedTo.email}
                                             </span>
                                           </div>
+                                        ) : (
+                                          <select
+                                            value=""
+                                            onChange={(e) => {
+                                              if (e.target.value) {
+                                                handleAssignTask(task.id, milestone.id, e.target.value)
+                                              }
+                                            }}
+                                            className="text-xs rounded border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                            onClick={(e) => e.stopPropagation()}
+                                          >
+                                            <option value="">Assign...</option>
+                                            {users.map((user) => (
+                                              <option key={user.id} value={user.id}>
+                                                {user.name || user.email}
+                                              </option>
+                                            ))}
+                                          </select>
                                         )}
                                         {task.comments.length > 0 && (
                                           <span className="inline-flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
@@ -1345,6 +1449,66 @@ export default function MilestoneList({ projectId, milestones, onUpdate }: Miles
                                 </div>
                                 {isTaskExpanded && (
                                   <div className="border-t border-gray-200 dark:border-gray-700 p-2 space-y-2 bg-gray-50 dark:bg-gray-900">
+                                    {/* Task Files */}
+                                    <div>
+                                      <div className="flex items-center justify-between mb-1">
+                                        <h6 className="text-xs font-medium text-gray-900 dark:text-white flex items-center gap-1">
+                                          <Paperclip className="h-3 w-3" />
+                                          Files ({taskFiles[task.id]?.length || 0})
+                                        </h6>
+                                        <label className="inline-flex items-center text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 cursor-pointer">
+                                          <Upload className="h-3 w-3 mr-1" />
+                                          Upload
+                                          <input
+                                            type="file"
+                                            className="hidden"
+                                            onChange={(e) => {
+                                              const file = e.target.files?.[0]
+                                              if (file) handleTaskFileUpload(task.id, milestone.id, file)
+                                              e.target.value = ''
+                                            }}
+                                            disabled={uploadingTaskFiles[task.id]}
+                                            accept=".pdf,.xlsx,.xls,.doc,.docx,.jpg,.jpeg,.png,.gif"
+                                          />
+                                        </label>
+                                      </div>
+                                      {uploadingTaskFiles[task.id] && (
+                                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Uploading...</p>
+                                      )}
+                                      {taskFiles[task.id] && taskFiles[task.id].length > 0 ? (
+                                        <div className="space-y-1 mb-2">
+                                          {taskFiles[task.id].map((file) => (
+                                            <div
+                                              key={file.id}
+                                              className="flex items-center justify-between p-1.5 bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700"
+                                            >
+                                              <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                                                <File className="h-3 w-3 text-gray-400 flex-shrink-0" />
+                                                <p className="text-xs font-medium text-gray-900 dark:text-white truncate">{file.name}</p>
+                                                <p className="text-xs text-gray-500 dark:text-gray-400">{formatFileSize(file.fileSize)}</p>
+                                              </div>
+                                              <div className="flex items-center gap-1">
+                                                <a
+                                                  href={file.fileUrl}
+                                                  download
+                                                  className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                                                >
+                                                  <Download className="h-3 w-3" />
+                                                </a>
+                                                <button
+                                                  onClick={() => handleDeleteTaskFile(task.id, file.id)}
+                                                  className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
+                                                >
+                                                  <X className="h-3 w-3" />
+                                                </button>
+                                              </div>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      ) : (
+                                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">No files attached</p>
+                                      )}
+                                    </div>
                                     <div>
                                       <h6 className="text-xs font-medium text-gray-900 dark:text-white mb-1">Comments</h6>
                                       <div className="space-y-1 mb-2">

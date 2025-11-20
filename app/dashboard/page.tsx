@@ -17,6 +17,12 @@ export default async function DashboardPage() {
     include: {
       milestones: {
         include: {
+          tasks: {
+            select: {
+              id: true,
+              status: true,
+            },
+          },
           _count: {
             select: { comments: true },
           },
