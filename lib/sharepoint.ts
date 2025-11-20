@@ -297,9 +297,13 @@ export async function deleteFileFromSharePoint(
   siteId?: string
 ): Promise<void> {
   try {
-    let basePath = '/sites'
+    // Determine base path - use siteId if provided, otherwise use default OneDrive
+    let basePath: string
     if (siteId) {
       basePath = `/sites/${siteId}`
+    } else {
+      // Use default OneDrive for Business (user's personal OneDrive)
+      basePath = '/me'
     }
 
     await client
