@@ -11,8 +11,12 @@ const roboto = Roboto({
 })
 
 export const metadata: Metadata = {
-  title: 'VEX Project Management',
+  title: 'Vexitey Portal',
   description: 'Project management software for low voltage installations',
+  icons: {
+    icon: '/icon.svg',
+    apple: '/icon.svg',
+  },
 }
 
 export default function RootLayout({
