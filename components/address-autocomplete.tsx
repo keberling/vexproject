@@ -87,103 +87,102 @@ export default function AddressAutocomplete({
 
   // Fetch address suggestions from Google Places Autocomplete API
   const fetchSuggestions = async (query: string) => {
-    console.log('fetchSuggestions called with query:', query)
+    console.log('🔍 fetchSuggestions called with query:', query)
+    
     if (!query || query.length < 3) {
-      console.log('Query too short, clearing suggestions')
+      console.log('❌ Query too short, clearing suggestions')
       setSuggestions([])
       setShowSuggestions(false)
       return
     }
 
-    // Get API key - in Next.js, NEXT_PUBLIC_ vars are available at build time
+    // Get API key - Next.js embeds NEXT_PUBLIC_ vars at build time
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
-    console.log('API Key check:', apiKey ? `Found (${apiKey.substring(0, 10)}...)` : 'NOT FOUND')
+    console.log('🔑 API Key check:', apiKey ? `✅ Found (${apiKey.substring(0, 15)}...)` : '❌ NOT FOUND')
     
     if (!apiKey) {
-      console.error('Google Maps API key not configured. Add NEXT_PUBLIC_GOOGLE_MAPS_API_KEY to your .env.local file and restart the dev server.')
+      console.error('❌ Google Maps API key not configured. Add NEXT_PUBLIC_GOOGLE_MAPS_API_KEY to your .env.local file and restart the dev server.')
       setSuggestions([])
       setShowSuggestions(false)
       return
     }
 
     setIsLoading(true)
+    console.log('⏳ Starting API request...')
+    
     try {
-      // Try using Google Places Autocomplete service first
-      if (autocompleteServiceRef.current && window.google && window.google.maps && window.google.maps.places) {
-        autocompleteServiceRef.current.getPlacePredictions(
-          {
-            input: query,
-            types: ['address'],
-            componentRestrictions: { country: 'us' }, // Restrict to US addresses
-          },
-          (predictions: AddressSuggestion[] | null, status: string) => {
-            if (status === window.google.maps.places.PlacesServiceStatus.OK && predictions) {
-              setSuggestions(predictions)
-              setShowSuggestions(predictions.length > 0)
-            } else {
-              console.warn('Google Places API status:', status)
-              setSuggestions([])
-              setShowSuggestions(false)
-            }
-            setIsLoading(false)
-          }
-        )
-      } else {
-        // Use REST API (more reliable than JS service)
-        console.log('Using REST API for address autocomplete')
-        const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(query)}&types=address&components=country:us&key=${apiKey}`
-        console.log('Fetching from:', url.replace(apiKey, 'API_KEY_HIDDEN'))
-        const response = await fetch(url)
+      // Always use REST API (more reliable)
+      const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(query)}&types=address&components=country:us&key=${apiKey}`
+      console.log('🌐 Fetching from Google Places API...')
+      
+      const response = await fetch(url)
+      console.log('📡 Response status:', response.status, response.statusText)
 
-        if (response.ok) {
-          const data = await response.json()
-          console.log('Google Places API response:', data.status, data.predictions?.length || 0, 'results')
-          if (data.status === 'OK' && data.predictions) {
-            setSuggestions(data.predictions)
-            setShowSuggestions(data.predictions.length > 0)
-          } else if (data.status === 'REQUEST_DENIED') {
-            console.error('Google Places API request denied. Check your API key and enable Places API in Google Cloud Console.')
-          } else if (data.status === 'OVER_QUERY_LIMIT') {
-            console.error('Google Places API quota exceeded.')
-          } else {
-            console.warn('Google Places API status:', data.status, data.error_message || '')
-            setSuggestions([])
-            setShowSuggestions(false)
-          }
+      if (response.ok) {
+        const data = await response.json()
+        console.log('✅ API Response:', {
+          status: data.status,
+          resultCount: data.predictions?.length || 0,
+          error_message: data.error_message
+        })
+        
+        if (data.status === 'OK' && data.predictions) {
+          console.log('✅ Setting suggestions:', data.predictions.length)
+          setSuggestions(data.predictions)
+          setShowSuggestions(data.predictions.length > 0)
+        } else if (data.status === 'REQUEST_DENIED') {
+          console.error('❌ REQUEST_DENIED:', data.error_message || 'Check your API key and enable Places API (New) in Google Cloud Console')
+          alert(`Google Places API Error: ${data.error_message || 'Request denied. Check API key and enable Places API (New) in Google Cloud Console.'}`)
+          setSuggestions([])
+          setShowSuggestions(false)
+        } else if (data.status === 'OVER_QUERY_LIMIT') {
+          console.error('❌ OVER_QUERY_LIMIT: Quota exceeded')
+          setSuggestions([])
+          setShowSuggestions(false)
         } else {
-          const errorText = await response.text()
-          console.error('Google Places API error:', response.status, errorText)
+          console.warn('⚠️ API status:', data.status, data.error_message || '')
           setSuggestions([])
           setShowSuggestions(false)
         }
-        setIsLoading(false)
+      } else {
+        const errorText = await response.text()
+        console.error('❌ HTTP Error:', response.status, errorText)
+        setSuggestions([])
+        setShowSuggestions(false)
       }
     } catch (error) {
-      console.error('Error fetching address suggestions:', error)
+      console.error('❌ Exception fetching address suggestions:', error)
       setSuggestions([])
       setShowSuggestions(false)
+    } finally {
       setIsLoading(false)
+      console.log('✅ Request complete')
     }
   }
 
   // Debounced search
   useEffect(() => {
+    console.log('🔄 useEffect triggered, value:', value, 'length:', value?.length || 0)
+    
     if (debounceRef.current) {
       clearTimeout(debounceRef.current)
     }
 
     if (value && value.length >= 3) {
+      console.log('⏱️ Setting 300ms timeout to fetch suggestions')
       debounceRef.current = setTimeout(() => {
-        console.log('Fetching suggestions for:', value)
+        console.log('⏰ Timeout fired! Calling fetchSuggestions with:', value)
         fetchSuggestions(value)
       }, 300) // Wait 300ms after user stops typing
     } else {
+      console.log('🧹 Clearing suggestions (value too short or empty)')
       setSuggestions([])
       setShowSuggestions(false)
     }
 
     return () => {
       if (debounceRef.current) {
+        console.log('🧹 Cleaning up timeout')
         clearTimeout(debounceRef.current)
       }
     }
@@ -267,7 +266,7 @@ export default function AddressAutocomplete({
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value
-    console.log('Input changed:', newValue)
+    console.log('⌨️ Input changed:', newValue, 'Length:', newValue.length)
     onChange(newValue)
     setSelectedIndex(-1)
   }
