@@ -3,8 +3,46 @@ import { templates } from './templates'
 
 const prisma = new PrismaClient()
 
+async function initializeAdmin() {
+  const adminEmail = process.env.INITIAL_ADMIN_EMAIL
+
+  if (!adminEmail) {
+    console.log('No INITIAL_ADMIN_EMAIL set in environment variables')
+    return
+  }
+
+  try {
+    // Check if user exists
+    const user = await prisma.user.findUnique({
+      where: { email: adminEmail },
+      select: { id: true, email: true, role: true },
+    })
+
+    if (!user) {
+      console.log(`⚠ User with email ${adminEmail} not found. Please create the user first, then they will be set as admin.`)
+      return
+    }
+
+    // Update user to admin if not already
+    if (user.role !== 'admin') {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { role: 'admin' },
+      })
+      console.log(`✓ User ${adminEmail} has been set as admin`)
+    } else {
+      console.log(`✓ User ${adminEmail} is already an admin`)
+    }
+  } catch (error) {
+    console.error('Error initializing admin user:', error)
+  }
+}
+
 async function main() {
-  console.log(`Seeding ${templates.length} template(s) from templates.ts...`)
+  // Initialize admin user first
+  await initializeAdmin()
+  
+  console.log(`\nSeeding ${templates.length} template(s) from templates.ts...`)
 
   for (const templateData of templates) {
     // Check if template already exists (by name)

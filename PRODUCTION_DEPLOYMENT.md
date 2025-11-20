@@ -72,6 +72,9 @@ SHAREPOINT_DRIVE_ID=""  # Optional, usually not needed
 
 # Admin Backup Secret (for scheduled backups)
 ADMIN_BACKUP_SECRET="your-secure-backup-secret"
+
+# Initial Admin User (email of user to set as admin on startup)
+INITIAL_ADMIN_EMAIL="admin@example.com"
 ```
 
 ## Production Considerations

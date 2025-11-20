@@ -1,5 +1,6 @@
 import * as cron from 'node-cron'
 import { prisma } from './prisma'
+import { initializeAdmin } from './init-admin'
 
 let scheduledTask: cron.ScheduledTask | null = null
 let initialized = false
@@ -7,6 +8,12 @@ let initialized = false
 // Auto-initialize on module load (only once)
 if (!initialized && typeof window === 'undefined') {
   // Only run on server-side
+  // Initialize admin user first
+  initializeAdmin().catch((error) => {
+    console.error('Failed to auto-initialize admin:', error)
+  })
+  
+  // Then initialize backup scheduler
   initializeBackupScheduler().catch((error) => {
     console.error('Failed to auto-initialize backup scheduler:', error)
   })

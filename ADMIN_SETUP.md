@@ -22,9 +22,30 @@ This will add the `role` field to your database. All existing users will default
 
 ### 2. Set First User as Admin
 
-You need to manually set at least one user as admin. You can do this in several ways:
+**Recommended Method: Using Environment Variable**
 
-#### Option A: Using Prisma Studio (Recommended)
+1. Create a user account by signing up through the application
+2. Add to your `.env` file:
+   ```env
+   INITIAL_ADMIN_EMAIL="your-email@example.com"
+   ```
+3. The user will automatically be set as admin when:
+   - The server starts (automatic initialization)
+   - You run `npm run db:seed`
+   - You call the `/api/admin/init-admin` endpoint
+
+**Alternative Methods:**
+
+If you prefer not to use the environment variable, you can set the admin manually:
+
+#### Option A: Using Environment Variable (Recommended)
+
+1. Create a user account by signing up
+2. Add `INITIAL_ADMIN_EMAIL="your-email@example.com"` to your `.env` file
+3. Restart the server or run `npm run db:seed`
+4. The user will automatically be set as admin
+
+#### Option B: Using Prisma Studio
 
 ```bash
 npm run db:studio
@@ -37,7 +58,7 @@ npm run db:studio
 5. Change `role` from `"user"` to `"admin"`
 6. Save
 
-#### Option B: Using SQL
+#### Option C: Using SQL
 
 If you have direct database access:
 
@@ -45,7 +66,7 @@ If you have direct database access:
 UPDATE "User" SET role = 'admin' WHERE email = 'your-email@example.com';
 ```
 
-#### Option C: Using a Script
+#### Option D: Using a Script
 
 Create a temporary script `scripts/set-admin.ts`:
 

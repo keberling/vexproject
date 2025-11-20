@@ -57,7 +57,12 @@ The database uses SQLite (embedded, no installation required). The database file
    
    # Admin Backup Secret (for scheduled backups)
    ADMIN_BACKUP_SECRET="your-backup-secret"
+   
+   # Initial Admin User (email of user to set as admin on startup)
+   INITIAL_ADMIN_EMAIL="admin@example.com"
    ```
+   
+   **Note**: Set `INITIAL_ADMIN_EMAIL` to the email of a user you want to be an admin. The user must exist in the database first (create them by signing up), then they will automatically be set as admin when the server starts or when you run `npm run db:seed`.
    
    See `MICROSOFT_SSO_SETUP.md` for detailed Microsoft SSO setup instructions.
 
