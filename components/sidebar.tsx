@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { LayoutDashboard, FolderKanban, Calendar, LogOut, FileText, Shield, CheckSquare } from 'lucide-react'
+import { LayoutDashboard, FolderKanban, Calendar, LogOut, FileText, Shield, CheckSquare, HelpCircle } from 'lucide-react'
 import UserAvatar from './user-avatar'
 
 interface SidebarProps {
@@ -31,6 +31,7 @@ export default function Sidebar({ user }: SidebarProps) {
     { name: 'My Tasks', href: '/dashboard/tasks', icon: CheckSquare },
     { name: 'Templates', href: '/dashboard/templates', icon: FileText },
     { name: 'Calendar', href: '/dashboard/calendar', icon: Calendar },
+    { name: 'Help', href: '/dashboard/help', icon: HelpCircle },
     ...(user.role === 'admin' ? [{ name: 'Admin', href: '/dashboard/admin', icon: Shield }] : []),
   ]
 
