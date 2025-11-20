@@ -29,6 +29,8 @@ if (
 
 export const config: NextAuthConfig = {
   providers,
+  // Trust host based on environment variable or default to true in development
+  trustHost: process.env.AUTH_TRUST_HOST === 'true' || process.env.AUTH_TRUST_HOST === '1' || process.env.NODE_ENV === 'development',
   callbacks: {
     async signIn({ user, account, profile }) {
       if (account?.provider === 'azure-ad') {

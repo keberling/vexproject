@@ -59,8 +59,11 @@ AZURE_AD_CLIENT_ID="your-client-id"
 AZURE_AD_CLIENT_SECRET="your-client-secret"
 AZURE_AD_TENANT_ID="your-tenant-id"
 
-# NextAuth
-NEXTAUTH_URL="https://yourdomain.com"  # Your production domain
+# NextAuth (v5)
+AUTH_URL="https://yourdomain.com"  # Your production domain
+AUTH_TRUST_HOST="false"  # Set to "true" only in development
+# Legacy (still works)
+NEXTAUTH_URL="https://yourdomain.com"
 NEXTAUTH_SECRET="your-production-nextauth-secret"
 
 # SharePoint (optional)

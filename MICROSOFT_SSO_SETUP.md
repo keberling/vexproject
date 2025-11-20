@@ -83,6 +83,11 @@ AZURE_AD_CLIENT_SECRET="your-client-secret-value"
 AZURE_AD_TENANT_ID="your-tenant-id"
 
 # NextAuth Configuration
+# For NextAuth v5, use AUTH_URL instead of NEXTAUTH_URL
+AUTH_URL="http://localhost:3000"
+# Trust host in development (set to "true" or "1" for localhost)
+AUTH_TRUST_HOST="true"
+# Legacy NEXTAUTH_URL (still works but AUTH_URL is preferred)
 NEXTAUTH_URL="http://localhost:3000"
 NEXTAUTH_SECRET="generate-a-random-string-here"
 
