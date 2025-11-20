@@ -22,12 +22,55 @@ export default async function ProjectDetailPage({
     include: {
       milestones: {
         orderBy: { createdAt: 'asc' },
+        include: {
+          files: {
+            orderBy: { uploadedAt: 'desc' },
+          },
+          comments: {
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true,
+                },
+              },
+            },
+            orderBy: { createdAt: 'desc' },
+          },
+        },
       },
       files: {
         orderBy: { uploadedAt: 'desc' },
+        include: {
+          milestone: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+        },
       },
       calendarEvents: {
         orderBy: { startDate: 'asc' },
+      },
+      communications: {
+        orderBy: { createdAt: 'desc' },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+          milestone: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+        },
       },
     },
   })

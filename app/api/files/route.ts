@@ -5,6 +5,76 @@ import { writeFile, mkdir } from 'fs/promises'
 import { join } from 'path'
 import { existsSync } from 'fs'
 
+export async function GET(request: NextRequest) {
+  try {
+    const user = await getCurrentUser()
+
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const { searchParams } = new URL(request.url)
+    const milestoneId = searchParams.get('milestoneId')
+    const projectId = searchParams.get('projectId')
+
+    if (milestoneId) {
+      // Fetch files for a specific milestone
+      const milestone = await prisma.milestone.findFirst({
+        where: { id: milestoneId },
+        include: { project: true },
+      })
+
+      if (!milestone || milestone.project.userId !== user.userId) {
+        return NextResponse.json({ error: 'Milestone not found' }, { status: 404 })
+      }
+
+      const files = await prisma.projectFile.findMany({
+        where: { milestoneId },
+        orderBy: { uploadedAt: 'desc' },
+      })
+
+      return NextResponse.json({ files })
+    }
+
+    if (projectId) {
+      // Fetch files for a project
+      const project = await prisma.project.findFirst({
+        where: {
+          id: projectId,
+          userId: user.userId,
+        },
+      })
+
+      if (!project) {
+        return NextResponse.json({ error: 'Project not found' }, { status: 404 })
+      }
+
+      const files = await prisma.projectFile.findMany({
+        where: { projectId },
+        include: {
+          milestone: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+        },
+        orderBy: { uploadedAt: 'desc' },
+      })
+
+      return NextResponse.json({ files })
+    }
+
+    return NextResponse.json({ error: 'projectId or milestoneId is required' }, { status: 400 })
+  } catch (error) {
+    console.error('Error fetching files:', error)
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    )
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const user = await getCurrentUser()
@@ -16,6 +86,7 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData()
     const file = formData.get('file') as File
     const projectId = formData.get('projectId') as string
+    const milestoneId = formData.get('milestoneId') as string | null
 
     if (!file || !projectId) {
       return NextResponse.json(
@@ -52,6 +123,23 @@ export async function POST(request: NextRequest) {
 
     const fileUrl = `/uploads/${projectId}/${fileName}`
 
+    // If milestoneId is provided, verify it belongs to the project
+    if (milestoneId) {
+      const milestone = await prisma.milestone.findFirst({
+        where: {
+          id: milestoneId,
+          projectId,
+        },
+      })
+
+      if (!milestone) {
+        return NextResponse.json(
+          { error: 'Milestone not found' },
+          { status: 404 }
+        )
+      }
+    }
+
     const projectFile = await prisma.projectFile.create({
       data: {
         name: file.name,
@@ -60,6 +148,7 @@ export async function POST(request: NextRequest) {
         fileType: file.type,
         fileSize: file.size,
         projectId,
+        milestoneId: milestoneId || null,
         // SharePoint fields would be set here when integration is enabled
         // sharepointId: sharepointFile.id,
         // sharepointUrl: sharepointFile.webUrl,

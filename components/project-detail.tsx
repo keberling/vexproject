@@ -3,18 +3,38 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Project, Milestone, ProjectFile, CalendarEvent } from '@prisma/client'
-import * as Tabs from '@radix-ui/react-tabs'
+import GridLayout, { Layout } from 'react-grid-layout'
+import 'react-grid-layout/css/styles.css'
+import 'react-resizable/css/styles.css'
 import MilestoneList from './milestone-list'
 import FileUpload from './file-upload'
 import FileList from './file-list'
 import CalendarEventList from './calendar-event-list'
-import { Trash2, Edit2, Save, X } from 'lucide-react'
+import CommunicationsList from './communications-list'
+import { Trash2, Edit2, Save, X, RotateCcw } from 'lucide-react'
 
 interface ProjectDetailProps {
   project: Project & {
     milestones: Milestone[]
     files: ProjectFile[]
     calendarEvents: CalendarEvent[]
+    communications?: Array<{
+      id: string
+      type: string
+      subject: string | null
+      content: string
+      direction: string | null
+      createdAt: Date
+      user: {
+        id: string
+        name: string | null
+        email: string
+      }
+      milestone: {
+        id: string
+        name: string
+      } | null
+    }>
   }
 }
 
@@ -35,26 +55,15 @@ const statusOptions = [
   'CANCELLED',
 ]
 
-const statusColors: Record<string, string> = {
-  INITIAL_CONTACT: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300',
-  QUOTE_SENT: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300',
-  QUOTE_APPROVED: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
-  CONTRACT_SIGNED: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300',
-  PAYMENT_RECEIVED: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
-  PARTS_ORDERED: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300',
-  PARTS_RECEIVED: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-300',
-  INSTALLATION_SCHEDULED: 'bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-300',
-  INSTALLATION_IN_PROGRESS: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-300',
-  INSTALLATION_COMPLETE: 'bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-300',
-  FINAL_INSPECTION: 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300',
-  PROJECT_COMPLETE: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-300',
-  ON_HOLD: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300',
-  CANCELLED: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300',
-}
+import { projectStatusColors, formatStatus } from '@/lib/status-colors'
 
-function formatStatus(status: string): string {
-  return status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (l) => l.toUpperCase())
-}
+// Default layout configuration
+const getDefaultLayout = (): Layout[] => [
+  { i: 'communications', x: 0, y: 0, w: 12, h: 4, minW: 12, minH: 3, maxW: 12, maxH: 8 },
+  { i: 'milestones', x: 0, y: 4, w: 12, h: 8, minW: 12, minH: 6, maxW: 12, maxH: 20 },
+  { i: 'files', x: 0, y: 12, w: 12, h: 8, minW: 12, minH: 6, maxW: 12, maxH: 20 },
+  { i: 'calendar', x: 0, y: 20, w: 12, h: 6, minW: 12, minH: 4, maxW: 12, maxH: 15 },
+]
 
 export default function ProjectDetail({ project: initialProject }: ProjectDetailProps) {
   const router = useRouter()
@@ -71,6 +80,63 @@ export default function ProjectDetail({ project: initialProject }: ProjectDetail
     description: project.description || '',
     status: project.status,
   })
+
+  // Load layout from localStorage or use default
+  const [layout, setLayout] = useState<Layout[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(`project-layout-${project.id}`)
+      if (saved) {
+        try {
+          return JSON.parse(saved)
+        } catch {
+          return getDefaultLayout()
+        }
+      }
+    }
+    return getDefaultLayout()
+  })
+
+  // Save layout to localStorage when it changes
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(`project-layout-${project.id}`, JSON.stringify(layout))
+    }
+  }, [layout, project.id])
+
+  // Handle window resize for responsive layout
+  const [windowWidth, setWindowWidth] = useState(
+    typeof window !== 'undefined' ? window.innerWidth : 1200
+  )
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    const handleResize = () => {
+      setWindowWidth(window.innerWidth)
+    }
+
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  // Calculate grid width (accounting for sidebar and padding)
+  const gridWidth = windowWidth > 1024 
+    ? windowWidth - 256 - 64  // lg: sidebar (256px) + padding (64px)
+    : windowWidth - 64  // mobile: just padding
+
+  // Disable drag/resize on mobile
+  const isMobile = windowWidth < 768
+
+  // Reset layout to default
+  const handleResetLayout = () => {
+    if (confirm('Reset layout to default? This will rearrange all panels.')) {
+      const defaultLayout = getDefaultLayout()
+      setLayout(defaultLayout)
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem(`project-layout-${project.id}`)
+      }
+    }
+  }
 
   const handleSave = async () => {
     setLoading(true)
@@ -141,108 +207,38 @@ export default function ProjectDetail({ project: initialProject }: ProjectDetail
       <div className="mb-6">
         <div className="flex items-center justify-between">
           <div className="flex-1">
-            {isEditing ? (
-              <input
-                type="text"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="text-2xl font-semibold text-gray-900 dark:text-white bg-transparent border-b-2 border-blue-500 focus:outline-none"
-              />
-            ) : (
-              <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">{project.name}</h1>
-            )}
-            <div className="mt-2 flex items-center gap-2">
-              <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${statusColors[project.status] || statusColors.INITIAL_CONTACT}`}>
+            <div className="flex items-center gap-4 flex-wrap">
+              {isEditing ? (
+                <input
+                  type="text"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  className="text-2xl font-semibold text-gray-900 dark:text-white bg-transparent border-b-2 border-blue-500 focus:outline-none"
+                />
+              ) : (
+                <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">{project.name}</h1>
+              )}
+              <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${projectStatusColors[project.status] || projectStatusColors.INITIAL_CONTACT}`}>
                 {formatStatus(project.status)}
               </span>
+              {!isEditing && (
+                <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
+                  <span>
+                    <span className="font-medium">Location:</span> {project.location}
+                  </span>
+                  {(project.address || project.city || project.state) && (
+                    <span>
+                      <span className="font-medium">Address:</span> {[project.address, project.city, project.state, project.zipCode].filter(Boolean).join(', ')}
+                    </span>
+                  )}
+                  <span>
+                    <span className="font-medium">Created:</span> {new Date(project.createdAt).toLocaleDateString()}
+                  </span>
+                </div>
+              )}
             </div>
-          </div>
-          <div className="flex items-center gap-2">
-            {isEditing ? (
-              <>
-                <button
-                  onClick={handleSave}
-                  disabled={loading}
-                  className="inline-flex items-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 disabled:opacity-50"
-                >
-                  <Save className="h-4 w-4 mr-1" />
-                  Save
-                </button>
-                <button
-                  onClick={() => {
-                    setIsEditing(false)
-                    setFormData({
-                      name: project.name,
-                      location: project.location,
-                      address: project.address || '',
-                      city: project.city || '',
-                      state: project.state || '',
-                      zipCode: project.zipCode || '',
-                      description: project.description || '',
-                      status: project.status,
-                    })
-                  }}
-                  className="inline-flex items-center rounded-md bg-gray-200 dark:bg-gray-700 px-3 py-2 text-sm font-semibold text-gray-900 dark:text-white shadow-sm hover:bg-gray-300 dark:hover:bg-gray-600"
-                >
-                  <X className="h-4 w-4 mr-1" />
-                  Cancel
-                </button>
-              </>
-            ) : (
-              <>
-                <button
-                  onClick={() => setIsEditing(true)}
-                  className="inline-flex items-center rounded-md bg-gray-200 dark:bg-gray-700 px-3 py-2 text-sm font-semibold text-gray-900 dark:text-white shadow-sm hover:bg-gray-300 dark:hover:bg-gray-600"
-                >
-                  <Edit2 className="h-4 w-4 mr-1" />
-                  Edit
-                </button>
-                <button
-                  onClick={handleDelete}
-                  disabled={loading}
-                  className="inline-flex items-center rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500 disabled:opacity-50"
-                >
-                  <Trash2 className="h-4 w-4 mr-1" />
-                  Delete
-                </button>
-              </>
-            )}
-          </div>
-        </div>
-      </div>
-
-      <Tabs.Root defaultValue="overview" className="space-y-4">
-        <Tabs.List className="flex space-x-1 border-b border-gray-200 dark:border-gray-700">
-          <Tabs.Trigger
-            value="overview"
-            className="px-4 py-2 text-sm font-medium text-gray-500 dark:text-gray-400 data-[state=active]:text-blue-600 data-[state=active]:border-b-2 data-[state=active]:border-blue-600"
-          >
-            Overview
-          </Tabs.Trigger>
-          <Tabs.Trigger
-            value="milestones"
-            className="px-4 py-2 text-sm font-medium text-gray-500 dark:text-gray-400 data-[state=active]:text-blue-600 data-[state=active]:border-b-2 data-[state=active]:border-blue-600"
-          >
-            Milestones
-          </Tabs.Trigger>
-          <Tabs.Trigger
-            value="files"
-            className="px-4 py-2 text-sm font-medium text-gray-500 dark:text-gray-400 data-[state=active]:text-blue-600 data-[state=active]:border-b-2 data-[state=active]:border-blue-600"
-          >
-            Files
-          </Tabs.Trigger>
-          <Tabs.Trigger
-            value="calendar"
-            className="px-4 py-2 text-sm font-medium text-gray-500 dark:text-gray-400 data-[state=active]:text-blue-600 data-[state=active]:border-b-2 data-[state=active]:border-blue-600"
-          >
-            Calendar Events
-          </Tabs.Trigger>
-        </Tabs.List>
-
-        <Tabs.Content value="overview" className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
-          <div className="space-y-6">
-            {isEditing ? (
-              <>
+            {isEditing && (
+              <div className="mt-4 space-y-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Location</label>
                   <input
@@ -314,53 +310,160 @@ export default function ProjectDetail({ project: initialProject }: ProjectDetail
                     className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2"
                   />
                 </div>
+              </div>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            {!isEditing && (
+              <button
+                onClick={handleResetLayout}
+                className="inline-flex items-center rounded-md bg-gray-200 dark:bg-gray-700 px-3 py-2 text-sm font-semibold text-gray-900 dark:text-white shadow-sm hover:bg-gray-300 dark:hover:bg-gray-600"
+                title="Reset layout to default"
+              >
+                <RotateCcw className="h-4 w-4 mr-1" />
+                Reset View
+              </button>
+            )}
+            {isEditing ? (
+              <>
+                <button
+                  onClick={handleSave}
+                  disabled={loading}
+                  className="inline-flex items-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 disabled:opacity-50"
+                >
+                  <Save className="h-4 w-4 mr-1" />
+                  Save
+                </button>
+                <button
+                  onClick={() => {
+                    setIsEditing(false)
+                    setFormData({
+                      name: project.name,
+                      location: project.location,
+                      address: project.address || '',
+                      city: project.city || '',
+                      state: project.state || '',
+                      zipCode: project.zipCode || '',
+                      description: project.description || '',
+                      status: project.status,
+                    })
+                  }}
+                  className="inline-flex items-center rounded-md bg-gray-200 dark:bg-gray-700 px-3 py-2 text-sm font-semibold text-gray-900 dark:text-white shadow-sm hover:bg-gray-300 dark:hover:bg-gray-600"
+                >
+                  <X className="h-4 w-4 mr-1" />
+                  Cancel
+                </button>
               </>
             ) : (
               <>
-                <div>
-                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Location</h3>
-                  <p className="mt-1 text-sm text-gray-900 dark:text-white">{project.location}</p>
-                </div>
-                {(project.address || project.city || project.state) && (
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Address</h3>
-                    <p className="mt-1 text-sm text-gray-900 dark:text-white">
-                      {[project.address, project.city, project.state, project.zipCode].filter(Boolean).join(', ')}
-                    </p>
-                  </div>
-                )}
-                {project.description && (
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Description</h3>
-                    <p className="mt-1 text-sm text-gray-900 dark:text-white whitespace-pre-wrap">{project.description}</p>
-                  </div>
-                )}
-                <div>
-                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Created</h3>
-                  <p className="mt-1 text-sm text-gray-900 dark:text-white">
-                    {new Date(project.createdAt).toLocaleDateString()}
-                  </p>
-                </div>
+                <button
+                  onClick={() => setIsEditing(true)}
+                  className="inline-flex items-center rounded-md bg-gray-200 dark:bg-gray-700 px-3 py-2 text-sm font-semibold text-gray-900 dark:text-white shadow-sm hover:bg-gray-300 dark:hover:bg-gray-600"
+                >
+                  <Edit2 className="h-4 w-4 mr-1" />
+                  Edit
+                </button>
+                <button
+                  onClick={handleDelete}
+                  disabled={loading}
+                  className="inline-flex items-center rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500 disabled:opacity-50"
+                >
+                  <Trash2 className="h-4 w-4 mr-1" />
+                  Delete
+                </button>
               </>
             )}
           </div>
-        </Tabs.Content>
+        </div>
+      </div>
 
-        <Tabs.Content value="milestones">
-          <MilestoneList projectId={project.id} milestones={project.milestones} onUpdate={handleRefresh} />
-        </Tabs.Content>
-
-        <Tabs.Content value="files">
-          <div className="space-y-4">
-            <FileUpload projectId={project.id} onUpload={handleRefresh} />
-            <FileList files={project.files} onDelete={handleRefresh} />
+      {/* Draggable Grid Layout */}
+      <div className="w-full">
+        <GridLayout
+          className="layout"
+          layout={layout}
+          onLayoutChange={(newLayout) => {
+            // Constrain items to stay within grid bounds
+            const constrainedLayout = newLayout.map((item) => {
+              // Ensure width doesn't exceed grid (12 columns)
+              const constrainedW = Math.min(item.w, 12)
+              
+              // Ensure x position doesn't go negative or exceed grid width
+              const maxX = 12 - constrainedW
+              const constrainedX = Math.max(0, Math.min(item.x, maxX))
+              
+              // Ensure y position doesn't go negative
+              const constrainedY = Math.max(0, item.y)
+              
+              return {
+                ...item,
+                x: constrainedX,
+                y: constrainedY,
+                w: constrainedW,
+              }
+            })
+            setLayout(constrainedLayout)
+          }}
+          cols={12}
+          rowHeight={60}
+          width={gridWidth}
+          isDraggable={false}
+          isResizable={false}
+          draggableHandle=".drag-handle"
+          margin={[16, 16]}
+          containerPadding={[0, 0]}
+          useCSSTransforms={true}
+          compactType="vertical"
+          preventCollision={true}
+          allowOverlap={false}
+          isBounded={true}
+        >
+          {/* Communications Panel */}
+          <div key="communications" className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 flex-shrink-0">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Communications & Notes</h2>
+            </div>
+            <div className="flex-1 overflow-y-auto">
+              <CommunicationsList 
+                projectId={project.id} 
+                milestones={project.milestones.map(m => ({ id: m.id, name: m.name }))}
+                onUpdate={handleRefresh} 
+              />
+            </div>
           </div>
-        </Tabs.Content>
 
-        <Tabs.Content value="calendar">
-          <CalendarEventList projectId={project.id} events={project.calendarEvents} onUpdate={handleRefresh} />
-        </Tabs.Content>
-      </Tabs.Root>
+          {/* Milestones Panel */}
+          <div key="milestones" className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 flex-shrink-0">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Milestones</h2>
+            </div>
+            <div className="flex-1 overflow-y-auto">
+              <MilestoneList projectId={project.id} milestones={project.milestones} onUpdate={handleRefresh} />
+            </div>
+          </div>
+
+          {/* Files Panel */}
+          <div key="files" className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 flex-shrink-0">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Files</h2>
+            </div>
+            <div className="p-6 overflow-y-auto space-y-4 flex-1">
+              <FileUpload projectId={project.id} onUpload={handleRefresh} />
+              <FileList files={project.files} milestones={project.milestones} onDelete={handleRefresh} />
+            </div>
+          </div>
+
+          {/* Calendar Panel */}
+          <div key="calendar" className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 flex-shrink-0">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Calendar Events</h2>
+            </div>
+            <div className="overflow-y-auto flex-1">
+              <CalendarEventList projectId={project.id} events={project.calendarEvents} onUpdate={handleRefresh} />
+            </div>
+          </div>
+        </GridLayout>
+      </div>
     </div>
   )
 }

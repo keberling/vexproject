@@ -8,6 +8,8 @@ async function main() {
 
   for (const templateData of templates) {
     // Check if template already exists (by name)
+    // Note: This preserves any edits made to templates in the UI.
+    // Templates edited in the database will not be overwritten by seed.
     const existingTemplate = await prisma.projectTemplate.findFirst({
       where: { name: templateData.name },
     })
