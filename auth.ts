@@ -2,6 +2,7 @@ import NextAuth from 'next-auth'
 import AzureADProvider from 'next-auth/providers/azure-ad'
 import type { NextAuthConfig } from 'next-auth'
 import { prisma } from '@/lib/prisma'
+import { initializeAdmin } from '@/lib/init-admin'
 
 // Only add Azure AD provider if credentials are configured
 const providers = []
@@ -73,6 +74,24 @@ export const config: NextAuthConfig = {
                 refreshToken: account.refresh_token,
               },
             })
+          }
+
+          // Check if this user should be set as admin based on INITIAL_ADMIN_EMAIL
+          // This ensures Microsoft SSO users are set as admin immediately
+          const adminEmail = process.env.INITIAL_ADMIN_EMAIL
+          if (adminEmail && user.email && user.email.toLowerCase() === adminEmail.toLowerCase()) {
+            const dbUser = await prisma.user.findUnique({
+              where: { email: user.email! },
+              select: { id: true, email: true, role: true },
+            })
+
+            if (dbUser && dbUser.role !== 'admin') {
+              await prisma.user.update({
+                where: { id: dbUser.id },
+                data: { role: 'admin' },
+              })
+              console.log(`✓ Microsoft SSO user ${user.email} has been set as admin`)
+            }
           }
         } catch (error) {
           console.error('Error in signIn callback:', error)
