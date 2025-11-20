@@ -20,15 +20,40 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Proxy the request to Google Places API (server-side, no CORS issues)
-    const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${encodeURIComponent(placeId)}&fields=formatted_address&key=${apiKey}`
+    // Use Places API (New) - different endpoint and format
+    const url = `https://places.googleapis.com/v1/places/${encodeURIComponent(placeId)}`
     
-    const response = await fetch(url)
-    const data = await response.json()
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Goog-Api-Key': apiKey,
+        'X-Goog-FieldMask': 'formattedAddress',
+      },
+    })
 
-    return NextResponse.json(data)
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error('Google Places API (New) error:', response.status, errorText)
+      return NextResponse.json(
+        { error: 'Failed to fetch place details', details: errorText },
+        { status: response.status }
+      )
+    }
+
+    const data = await response.json()
+    
+    // Transform new API response format to match old format for compatibility
+    const transformedData = {
+      status: 'OK',
+      result: {
+        formatted_address: data.formattedAddress || '',
+      },
+    }
+
+    return NextResponse.json(transformedData)
   } catch (error) {
-    console.error('Error proxying Google Places Details API:', error)
+    console.error('Error proxying Google Places Details API (New):', error)
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
