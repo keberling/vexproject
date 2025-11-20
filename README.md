@@ -87,6 +87,23 @@ npm start
 
 See `PRODUCTION_DEPLOYMENT.md` for detailed production deployment instructions.
 
+### Running as a Service on Ubuntu
+
+To run the application as a systemd service on Ubuntu (automatically starts on boot):
+
+1. **Quick setup** (recommended):
+   ```bash
+   ./setup-service.sh
+   ```
+
+2. **Manual setup**: See `UBUNTU_SERVICE_SETUP.md` for detailed instructions.
+
+The setup includes:
+- Automatic startup on boot
+- Automatic restart on crash
+- Log management via systemd
+- Easy service management commands
+
 ## Default Milestones
 
 - Initial Contact
