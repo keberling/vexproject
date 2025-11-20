@@ -11,7 +11,6 @@ export async function GET(request: NextRequest) {
     }
 
     const projects = await prisma.project.findMany({
-      where: { userId: user.userId },
       include: {
         milestones: true,
         _count: {

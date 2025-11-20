@@ -16,7 +16,6 @@ export async function GET(
     const project = await prisma.project.findFirst({
       where: {
         id: params.id,
-        userId: user.userId,
       },
       include: {
         milestones: {

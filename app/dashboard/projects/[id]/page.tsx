@@ -17,7 +17,6 @@ export default async function ProjectDetailPage({
   const project = await prisma.project.findFirst({
     where: {
       id: params.id,
-      userId: user.userId,
     },
     include: {
       milestones: {
