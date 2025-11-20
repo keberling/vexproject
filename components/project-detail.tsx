@@ -283,12 +283,11 @@ export default function ProjectDetail({ project: initialProject }: ProjectDetail
                     setIsEditing(false)
                     setFormData({
                       name: project.name,
-                      location: project.location,
-                      address: project.address || '',
-                      city: project.city || '',
-                      state: project.state || '',
-                      zipCode: project.zipCode || '',
+                      address: (project as any).address || '',
                       description: project.description || '',
+                      gcContact: (project as any).gcContact || '',
+                      cdsContact: (project as any).cdsContact || '',
+                      franchiseOwnerContact: (project as any).franchiseOwnerContact || '',
                       status: project.status,
                     })
                   }}
