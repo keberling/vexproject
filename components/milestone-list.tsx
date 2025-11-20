@@ -7,7 +7,15 @@ import * as Dialog from '@radix-ui/react-dialog'
 
 interface MilestoneListProps {
   projectId: string
-  milestones: Milestone[]
+  milestones: (Milestone & {
+    comments?: (MilestoneComment & {
+      user: {
+        id: string
+        name: string | null
+        email: string
+      }
+    })[]
+  })[]
   onUpdate: () => void
 }
 
@@ -82,31 +90,58 @@ export default function MilestoneList({ projectId, milestones, onUpdate }: Miles
   })
   const [commentTexts, setCommentTexts] = useState<Record<string, string>>({})
 
-  // Fetch files and comments for expanded milestones
+  // Pre-load comments for all milestones on mount
   useEffect(() => {
-    const fetchMilestoneData = async (milestoneId: string) => {
+    const loadAllComments = async () => {
+      const commentsMap: Record<string, (MilestoneComment & {
+        user: {
+          id: string
+          name: string | null
+          email: string
+        }
+      })[]> = {}
+
+      // Use pre-loaded comments from props if available, otherwise fetch
+      for (const milestone of milestones) {
+        const milestoneWithComments = milestone as any
+        if (milestoneWithComments.comments && Array.isArray(milestoneWithComments.comments)) {
+          commentsMap[milestone.id] = milestoneWithComments.comments
+        } else {
+          try {
+            const commentsResponse = await fetch(`/api/milestones/${milestone.id}/comments`)
+            if (commentsResponse.ok) {
+              const commentsData = await commentsResponse.json()
+              commentsMap[milestone.id] = commentsData.comments || []
+            }
+          } catch (error) {
+            console.error(`Error fetching comments for milestone ${milestone.id}:`, error)
+            commentsMap[milestone.id] = []
+          }
+        }
+      }
+      setMilestoneComments(commentsMap)
+    }
+
+    loadAllComments()
+  }, [milestones])
+
+  // Fetch files for expanded milestones
+  useEffect(() => {
+    const fetchMilestoneFiles = async (milestoneId: string) => {
       try {
-        // Fetch files for this milestone
         const filesResponse = await fetch(`/api/files?milestoneId=${milestoneId}`)
         if (filesResponse.ok) {
           const filesData = await filesResponse.json()
           setMilestoneFiles(prev => ({ ...prev, [milestoneId]: filesData.files || [] }))
         }
-
-        // Fetch comments for this milestone
-        const commentsResponse = await fetch(`/api/milestones/${milestoneId}/comments`)
-        if (commentsResponse.ok) {
-          const commentsData = await commentsResponse.json()
-          setMilestoneComments(prev => ({ ...prev, [milestoneId]: commentsData.comments || [] }))
-        }
       } catch (error) {
-        console.error('Error fetching milestone data:', error)
+        console.error('Error fetching milestone files:', error)
       }
     }
 
     expandedMilestones.forEach(milestoneId => {
-      if (!milestoneFiles[milestoneId] && !milestoneComments[milestoneId]) {
-        fetchMilestoneData(milestoneId)
+      if (!milestoneFiles[milestoneId]) {
+        fetchMilestoneFiles(milestoneId)
       }
     })
   }, [expandedMilestones])
@@ -398,10 +433,10 @@ export default function MilestoneList({ projectId, milestones, onUpdate }: Miles
                             {milestoneFiles[milestone.id].length}
                           </span>
                         )}
-                        {milestoneComments[milestone.id] && milestoneComments[milestone.id].length > 0 && (
+                        {(milestoneComments[milestone.id]?.length || 0) > 0 && (
                           <span className="inline-flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
                             <MessageSquare className="h-3 w-3" />
-                            {milestoneComments[milestone.id].length}
+                            {milestoneComments[milestone.id]?.length || 0}
                           </span>
                         )}
                       </div>
@@ -575,9 +610,13 @@ export default function MilestoneList({ projectId, milestones, onUpdate }: Miles
                                     projectId,
                                     milestoneId: milestone.id,
                                   }),
-                                }).then(() => {
-                                  alert('Call recorded!')
-                                  onUpdate()
+                                }).then((response) => {
+                                  if (response.ok) {
+                                    alert('Call recorded!')
+                                    onUpdate()
+                                  } else {
+                                    alert('Failed to record call')
+                                  }
                                 }).catch(() => alert('Failed to record call'))
                               }
                             }}
@@ -604,9 +643,13 @@ export default function MilestoneList({ projectId, milestones, onUpdate }: Miles
                                     projectId,
                                     milestoneId: milestone.id,
                                   }),
-                                }).then(() => {
-                                  alert('Email recorded!')
-                                  onUpdate()
+                                }).then((response) => {
+                                  if (response.ok) {
+                                    alert('Email recorded!')
+                                    onUpdate()
+                                  } else {
+                                    alert('Failed to record email')
+                                  }
                                 }).catch(() => alert('Failed to record email'))
                               }
                             }}
@@ -629,9 +672,13 @@ export default function MilestoneList({ projectId, milestones, onUpdate }: Miles
                                     projectId,
                                     milestoneId: milestone.id,
                                   }),
-                                }).then(() => {
-                                  alert('Note recorded!')
-                                  onUpdate()
+                                }).then((response) => {
+                                  if (response.ok) {
+                                    alert('Note recorded!')
+                                    onUpdate()
+                                  } else {
+                                    alert('Failed to record note')
+                                  }
                                 }).catch(() => alert('Failed to record note'))
                               }
                             }}

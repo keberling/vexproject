@@ -5,11 +5,24 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --size-scale: 1;
 }
 
 .dark {
   --background: #0a0a0a;
   --foreground: #ededed;
+}
+
+[data-size-mode="small"] {
+  --size-scale: 0.75;
+}
+
+[data-size-mode="large"] {
+  --size-scale: 1;
+}
+
+html {
+  font-size: calc(1rem * var(--size-scale));
 }
 
 body {
@@ -21,6 +34,51 @@ body {
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+  
+  /* Size mode utilities */
+  .text-scale {
+    font-size: calc(1em * var(--size-scale));
+  }
+  
+  .gap-scale {
+    gap: calc(1rem * var(--size-scale));
+  }
+  
+  .p-scale {
+    padding: calc(1rem * var(--size-scale));
+  }
+  
+  .px-scale {
+    padding-left: calc(1rem * var(--size-scale));
+    padding-right: calc(1rem * var(--size-scale));
+  }
+  
+  .py-scale {
+    padding-top: calc(1rem * var(--size-scale));
+    padding-bottom: calc(1rem * var(--size-scale));
+  }
+  
+  .m-scale {
+    margin: calc(1rem * var(--size-scale));
+  }
+  
+  .mx-scale {
+    margin-left: calc(1rem * var(--size-scale));
+    margin-right: calc(1rem * var(--size-scale));
+  }
+  
+  .my-scale {
+    margin-top: calc(1rem * var(--size-scale));
+    margin-bottom: calc(1rem * var(--size-scale));
+  }
+  
+  .h-scale {
+    height: calc(1rem * var(--size-scale));
+  }
+  
+  .w-scale {
+    width: calc(1rem * var(--size-scale));
   }
 }
 
@@ -137,6 +195,12 @@ body {
 
 .react-grid-item.cssTransforms {
   transition-property: transform, width, height;
+}
+
+.react-grid-item > div {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 .react-grid-item.resizing {

@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ThemeToggle } from './theme-toggle'
+import { SizeToggle } from './size-toggle'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -43,7 +44,8 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 px-4" suppressHydrationWarning>
-      <div className="absolute top-4 right-4" suppressHydrationWarning>
+      <div className="absolute top-4 right-4 flex items-center gap-4" suppressHydrationWarning>
+        <SizeToggle />
         <ThemeToggle />
       </div>
       <div className="max-w-md w-full space-y-8 bg-white dark:bg-gray-800 p-8 rounded-lg shadow-lg">

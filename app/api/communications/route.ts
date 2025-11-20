@@ -30,10 +30,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 })
     }
 
+    // Build where clause - if milestoneId is provided, filter by it; otherwise get all for project
     const where: any = { projectId }
     if (milestoneId) {
       where.milestoneId = milestoneId
     }
+    // If no milestoneId filter, we want all communications (both with and without milestoneId)
 
     const communications = await prisma.communication.findMany({
       where,
@@ -55,7 +57,30 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: 'desc' },
     })
 
-    return NextResponse.json({ communications })
+    // Ensure milestone relation is properly structured
+    const communicationsWithMilestone = communications.map(comm => {
+      // If milestoneId exists but milestone relation is null, it means the milestone was deleted
+      // We'll still include it but with milestone as null
+      return {
+        ...comm,
+        milestone: comm.milestoneId && comm.milestone ? comm.milestone : null,
+      }
+    })
+
+    // Debug logging
+    console.log(`[Communications API] Fetched ${communications.length} communications for project ${projectId}`)
+    const milestoneComms = communicationsWithMilestone.filter(c => c.milestoneId)
+    console.log(`[Communications API] ${milestoneComms.length} are milestone-related`)
+    if (milestoneComms.length > 0) {
+      console.log(`[Communications API] Sample milestone comm:`, {
+        id: milestoneComms[0].id,
+        type: milestoneComms[0].type,
+        milestoneId: milestoneComms[0].milestoneId,
+        milestone: milestoneComms[0].milestone
+      })
+    }
+
+    return NextResponse.json({ communications: communicationsWithMilestone })
   } catch (error) {
     console.error('Error fetching communications:', error)
     return NextResponse.json(

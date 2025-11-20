@@ -21,6 +21,7 @@ interface CommunicationsListProps {
   projectId: string
   milestones: Array<{ id: string; name: string }>
   onUpdate: () => void
+  refreshTrigger?: number
 }
 
 const communicationIcons = {
@@ -37,10 +38,11 @@ const communicationColors = {
   NOTE: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300',
 }
 
-export default function CommunicationsList({ projectId, milestones, onUpdate }: CommunicationsListProps) {
+export default function CommunicationsList({ projectId, milestones, onUpdate, refreshTrigger }: CommunicationsListProps) {
   const [communications, setCommunications] = useState<CommunicationWithRelations[]>([])
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [fetching, setFetching] = useState(true)
   const [formData, setFormData] = useState({
     type: 'NOTE',
     subject: '',
@@ -51,17 +53,32 @@ export default function CommunicationsList({ projectId, milestones, onUpdate }: 
 
   useEffect(() => {
     fetchCommunications()
-  }, [projectId])
+  }, [projectId, refreshTrigger])
 
   const fetchCommunications = async () => {
+    setFetching(true)
     try {
       const response = await fetch(`/api/communications?projectId=${projectId}`)
       if (response.ok) {
         const data = await response.json()
-        setCommunications(data.communications || [])
+        const allComms = data.communications || []
+        const milestoneComms = allComms.filter((c: any) => c.milestoneId)
+        console.log('[CommunicationsList] Fetched:', allComms.length, 'total,', milestoneComms.length, 'milestone-related')
+        console.log('[CommunicationsList] Sample milestone comms:', milestoneComms.slice(0, 3).map((c: any) => ({
+          id: c.id,
+          type: c.type,
+          milestoneId: c.milestoneId,
+          milestone: c.milestone
+        })))
+        setCommunications(allComms)
+      } else {
+        const errorText = await response.text()
+        console.error('[CommunicationsList] Failed to fetch:', response.status, response.statusText, errorText)
       }
     } catch (error) {
-      console.error('Error fetching communications:', error)
+      console.error('[CommunicationsList] Error fetching:', error)
+    } finally {
+      setFetching(false)
     }
   }
 
@@ -94,7 +111,7 @@ export default function CommunicationsList({ projectId, milestones, onUpdate }: 
         direction: '',
         milestoneId: '',
       })
-      fetchCommunications()
+      await fetchCommunications()
       onUpdate()
     } catch (error) {
       console.error('Error creating communication:', error)
@@ -127,9 +144,9 @@ export default function CommunicationsList({ projectId, milestones, onUpdate }: 
   }
 
   return (
-    <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-medium text-gray-900 dark:text-white">Communications & Notes</h2>
+    <div className="flex flex-col">
+      <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 flex-shrink-0">
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Communications & Notes</h2>
         <Dialog.Root open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <Dialog.Trigger asChild>
             <button className="inline-flex items-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500">
@@ -243,23 +260,26 @@ export default function CommunicationsList({ projectId, milestones, onUpdate }: 
         </Dialog.Root>
       </div>
 
-      {communications.length === 0 ? (
-        <p className="text-gray-500 dark:text-gray-400 text-center py-8">No communications recorded yet.</p>
-      ) : (
-        <div className="space-y-3 max-h-96 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto p-3">
+        {fetching ? (
+          <p className="text-gray-500 dark:text-gray-400 text-center py-4 text-sm">Loading...</p>
+        ) : communications.length === 0 ? (
+          <p className="text-gray-500 dark:text-gray-400 text-center py-4 text-sm">No communications recorded yet.</p>
+        ) : (
+          <div className="space-y-1.5">
           {communications.map((comm) => {
             const Icon = communicationIcons[comm.type as keyof typeof communicationIcons] || FileText
             return (
               <div
                 key={comm.id}
-                className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg"
+                className="p-2 border border-gray-200 dark:border-gray-700 rounded hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-start gap-3 flex-1">
-                    <Icon className="h-5 w-5 text-gray-400 mt-0.5 flex-shrink-0" />
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-start gap-2 flex-1 min-w-0">
+                    <Icon className="h-3.5 w-3.5 text-gray-400 mt-0.5 flex-shrink-0" />
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap mb-1">
-                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${communicationColors[comm.type as keyof typeof communicationColors] || communicationColors.NOTE}`}>
+                      <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
+                        <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium ${communicationColors[comm.type as keyof typeof communicationColors] || communicationColors.NOTE}`}>
                           {comm.type}
                         </span>
                         {comm.direction && (
@@ -267,38 +287,47 @@ export default function CommunicationsList({ projectId, milestones, onUpdate }: 
                             {comm.direction}
                           </span>
                         )}
-                        {comm.milestone && (
-                          <span className="text-xs text-blue-600 dark:text-blue-400">
-                            {comm.milestone.name}
+                        {comm.milestoneId && comm.milestone ? (
+                          <span className="text-xs font-medium text-blue-600 dark:text-blue-400">
+                            Milestone: {comm.milestone.name}
+                          </span>
+                        ) : comm.milestoneId ? (
+                          <span className="text-xs font-medium text-blue-600 dark:text-blue-400">
+                            Milestone: (Unknown)
+                          </span>
+                        ) : (
+                          <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
+                            Project
                           </span>
                         )}
                       </div>
                       {comm.subject && (
-                        <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-1">
+                        <h4 className="text-xs font-medium text-gray-900 dark:text-white mb-0.5 truncate">
                           {comm.subject}
                         </h4>
                       )}
-                      <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                      <p className="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
                         {comm.content}
                       </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                         {comm.user.name || comm.user.email} • {new Date(comm.createdAt).toLocaleString()}
                       </p>
                     </div>
                   </div>
                   <button
                     onClick={() => handleDelete(comm.id)}
-                    className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 flex-shrink-0"
+                    className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 flex-shrink-0 p-1"
                     title="Delete communication"
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <Trash2 className="h-3.5 w-3.5" />
                   </button>
                 </div>
               </div>
             )
           })}
-        </div>
-      )}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

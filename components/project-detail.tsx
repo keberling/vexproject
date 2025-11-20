@@ -1,21 +1,30 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Project, Milestone, ProjectFile, CalendarEvent } from '@prisma/client'
-import GridLayout, { Layout } from 'react-grid-layout'
-import 'react-grid-layout/css/styles.css'
-import 'react-resizable/css/styles.css'
 import MilestoneList from './milestone-list'
 import FileUpload from './file-upload'
 import FileList from './file-list'
 import CalendarEventList from './calendar-event-list'
 import CommunicationsList from './communications-list'
-import { Trash2, Edit2, Save, X, RotateCcw } from 'lucide-react'
+import { Trash2, Edit2, Save, X } from 'lucide-react'
+import { projectStatusColors, formatStatus } from '@/lib/status-colors'
 
 interface ProjectDetailProps {
   project: Project & {
-    milestones: Milestone[]
+    milestones: (Milestone & {
+      comments?: Array<{
+        id: string
+        content: string
+        createdAt: Date
+        user: {
+          id: string
+          name: string | null
+          email: string
+        }
+      }>
+    })[]
     files: ProjectFile[]
     calendarEvents: CalendarEvent[]
     communications?: Array<{
@@ -55,21 +64,12 @@ const statusOptions = [
   'CANCELLED',
 ]
 
-import { projectStatusColors, formatStatus } from '@/lib/status-colors'
-
-// Default layout configuration
-const getDefaultLayout = (): Layout[] => [
-  { i: 'communications', x: 0, y: 0, w: 12, h: 4, minW: 12, minH: 3, maxW: 12, maxH: 8 },
-  { i: 'milestones', x: 0, y: 4, w: 12, h: 8, minW: 12, minH: 6, maxW: 12, maxH: 20 },
-  { i: 'files', x: 0, y: 12, w: 12, h: 8, minW: 12, minH: 6, maxW: 12, maxH: 20 },
-  { i: 'calendar', x: 0, y: 20, w: 12, h: 6, minW: 12, minH: 4, maxW: 12, maxH: 15 },
-]
-
 export default function ProjectDetail({ project: initialProject }: ProjectDetailProps) {
   const router = useRouter()
   const [project, setProject] = useState(initialProject)
   const [isEditing, setIsEditing] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [refreshKey, setRefreshKey] = useState(0)
   const [formData, setFormData] = useState({
     name: project.name,
     location: project.location,
@@ -80,63 +80,6 @@ export default function ProjectDetail({ project: initialProject }: ProjectDetail
     description: project.description || '',
     status: project.status,
   })
-
-  // Load layout from localStorage or use default
-  const [layout, setLayout] = useState<Layout[]>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem(`project-layout-${project.id}`)
-      if (saved) {
-        try {
-          return JSON.parse(saved)
-        } catch {
-          return getDefaultLayout()
-        }
-      }
-    }
-    return getDefaultLayout()
-  })
-
-  // Save layout to localStorage when it changes
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(`project-layout-${project.id}`, JSON.stringify(layout))
-    }
-  }, [layout, project.id])
-
-  // Handle window resize for responsive layout
-  const [windowWidth, setWindowWidth] = useState(
-    typeof window !== 'undefined' ? window.innerWidth : 1200
-  )
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-
-    const handleResize = () => {
-      setWindowWidth(window.innerWidth)
-    }
-
-    window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
-  }, [])
-
-  // Calculate grid width (accounting for sidebar and padding)
-  const gridWidth = windowWidth > 1024 
-    ? windowWidth - 256 - 64  // lg: sidebar (256px) + padding (64px)
-    : windowWidth - 64  // mobile: just padding
-
-  // Disable drag/resize on mobile
-  const isMobile = windowWidth < 768
-
-  // Reset layout to default
-  const handleResetLayout = () => {
-    if (confirm('Reset layout to default? This will rearrange all panels.')) {
-      const defaultLayout = getDefaultLayout()
-      setLayout(defaultLayout)
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem(`project-layout-${project.id}`)
-      }
-    }
-  }
 
   const handleSave = async () => {
     setLoading(true)
@@ -189,7 +132,6 @@ export default function ProjectDetail({ project: initialProject }: ProjectDetail
   }
 
   const handleRefresh = async () => {
-    // Refetch the project data to update the client state
     try {
       const response = await fetch(`/api/projects/${project.id}`)
       if (response.ok) {
@@ -199,11 +141,13 @@ export default function ProjectDetail({ project: initialProject }: ProjectDetail
     } catch (error) {
       console.error('Error refreshing project:', error)
     }
+    setRefreshKey(prev => prev + 1) // Trigger communications refresh
     router.refresh()
   }
 
   return (
-    <div className="px-4 sm:px-6 lg:px-8">
+    <div className="px-4 sm:px-6 lg:px-8 pb-8">
+      {/* Project Header */}
       <div className="mb-6">
         <div className="flex items-center justify-between">
           <div className="flex-1">
@@ -314,16 +258,6 @@ export default function ProjectDetail({ project: initialProject }: ProjectDetail
             )}
           </div>
           <div className="flex items-center gap-2">
-            {!isEditing && (
-              <button
-                onClick={handleResetLayout}
-                className="inline-flex items-center rounded-md bg-gray-200 dark:bg-gray-700 px-3 py-2 text-sm font-semibold text-gray-900 dark:text-white shadow-sm hover:bg-gray-300 dark:hover:bg-gray-600"
-                title="Reset layout to default"
-              >
-                <RotateCcw className="h-4 w-4 mr-1" />
-                Reset View
-              </button>
-            )}
             {isEditing ? (
               <>
                 <button
@@ -377,94 +311,49 @@ export default function ProjectDetail({ project: initialProject }: ProjectDetail
         </div>
       </div>
 
-      {/* Draggable Grid Layout */}
-      <div className="w-full">
-        <GridLayout
-          className="layout"
-          layout={layout}
-          onLayoutChange={(newLayout) => {
-            // Constrain items to stay within grid bounds
-            const constrainedLayout = newLayout.map((item) => {
-              // Ensure width doesn't exceed grid (12 columns)
-              const constrainedW = Math.min(item.w, 12)
-              
-              // Ensure x position doesn't go negative or exceed grid width
-              const maxX = 12 - constrainedW
-              const constrainedX = Math.max(0, Math.min(item.x, maxX))
-              
-              // Ensure y position doesn't go negative
-              const constrainedY = Math.max(0, item.y)
-              
-              return {
-                ...item,
-                x: constrainedX,
-                y: constrainedY,
-                w: constrainedW,
-              }
-            })
-            setLayout(constrainedLayout)
-          }}
-          cols={12}
-          rowHeight={60}
-          width={gridWidth}
-          isDraggable={false}
-          isResizable={false}
-          draggableHandle=".drag-handle"
-          margin={[16, 16]}
-          containerPadding={[0, 0]}
-          useCSSTransforms={true}
-          compactType="vertical"
-          preventCollision={true}
-          allowOverlap={false}
-          isBounded={true}
-        >
-          {/* Communications Panel */}
-          <div key="communications" className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden flex flex-col">
-            <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 flex-shrink-0">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Communications & Notes</h2>
-            </div>
-            <div className="flex-1 overflow-y-auto">
-              <CommunicationsList 
-                projectId={project.id} 
-                milestones={project.milestones.map(m => ({ id: m.id, name: m.name }))}
-                onUpdate={handleRefresh} 
-              />
-            </div>
-          </div>
+      {/* Main Content - Stacked Layout */}
+      <div className="space-y-6">
+        {/* Communications & Notes Section */}
+        <div className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+          <CommunicationsList 
+            projectId={project.id} 
+            milestones={project.milestones.map(m => ({ id: m.id, name: m.name }))}
+            onUpdate={handleRefresh}
+            refreshTrigger={refreshKey}
+          />
+        </div>
 
-          {/* Milestones Panel */}
-          <div key="milestones" className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden flex flex-col">
-            <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 flex-shrink-0">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Milestones</h2>
-            </div>
-            <div className="flex-1 overflow-y-auto">
-              <MilestoneList projectId={project.id} milestones={project.milestones} onUpdate={handleRefresh} />
-            </div>
+        {/* Milestones Section */}
+        <div className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+          <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Milestones</h2>
           </div>
+          <div className="p-6">
+            <MilestoneList projectId={project.id} milestones={project.milestones} onUpdate={handleRefresh} />
+          </div>
+        </div>
 
-          {/* Files Panel */}
-          <div key="files" className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden flex flex-col">
-            <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 flex-shrink-0">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Files</h2>
-            </div>
-            <div className="p-6 overflow-y-auto space-y-4 flex-1">
-              <FileUpload projectId={project.id} onUpload={handleRefresh} />
-              <FileList files={project.files} milestones={project.milestones} onDelete={handleRefresh} />
-            </div>
+        {/* Files Section */}
+        <div className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+          <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Files</h2>
           </div>
+          <div className="p-6 space-y-4">
+            <FileUpload projectId={project.id} onUpload={handleRefresh} />
+            <FileList files={project.files} milestones={project.milestones} onDelete={handleRefresh} />
+          </div>
+        </div>
 
-          {/* Calendar Panel */}
-          <div key="calendar" className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden flex flex-col">
-            <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 flex-shrink-0">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Calendar Events</h2>
-            </div>
-            <div className="overflow-y-auto flex-1">
-              <CalendarEventList projectId={project.id} events={project.calendarEvents} onUpdate={handleRefresh} />
-            </div>
+        {/* Calendar Section */}
+        <div className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+          <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Calendar Events</h2>
           </div>
-        </GridLayout>
+          <div className="p-6">
+            <CalendarEventList projectId={project.id} events={project.calendarEvents} onUpdate={handleRefresh} />
+          </div>
+        </div>
       </div>
     </div>
   )
 }
-
