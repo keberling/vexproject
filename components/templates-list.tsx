@@ -220,7 +220,7 @@ export default function TemplatesList({ templates: initialTemplates }: Templates
   const addMilestone = () => {
     setFormData({
       ...formData,
-      milestones: [...formData.milestones, { name: '', description: '', category: '', tasks: [{ name: '', description: '', order: 0, assignedToId: '' }], order: formData.milestones.length }],
+      milestones: [...formData.milestones, { name: '', description: '', category: '', tasks: [{ name: '', description: '', order: 0, assignedToId: null }], order: formData.milestones.length }],
     })
   }
 
