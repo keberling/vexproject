@@ -45,6 +45,7 @@ export async function PATCH(
       data: {
         ...(body.name && { name: body.name }),
         ...(body.description !== undefined && { description: body.description }),
+        ...(body.category !== undefined && { category: body.category || null }),
         ...(body.status && { status: body.status }),
         ...(body.dueDate !== undefined && { dueDate: body.dueDate ? new Date(body.dueDate) : null }),
         ...(body.isImportant !== undefined && { isImportant: body.isImportant }),

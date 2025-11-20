@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { Milestone, ProjectFile, MilestoneComment, Task, TaskComment } from '@prisma/client'
-import { Plus, Trash2, Check, Clock, AlertCircle, Calendar, Pause, Paperclip, MessageSquare, ChevronDown, ChevronUp, Upload, Download, File, X, Phone, Mail, FileText, Image as ImageIcon, Folder, Cloud, User, Star } from 'lucide-react'
+import { Plus, Trash2, Check, Clock, AlertCircle, Calendar, Pause, Paperclip, MessageSquare, ChevronDown, ChevronUp, Upload, Download, File, X, Phone, Mail, FileText, Image as ImageIcon, Folder, Cloud, User, Star, Edit } from 'lucide-react'
 import * as Dialog from '@radix-ui/react-dialog'
 import Image from 'next/image'
 import UserAvatar from './user-avatar'
@@ -142,7 +142,29 @@ export default function MilestoneList({ projectId, milestones, onUpdate }: Miles
     isImportant: false,
     dueDate: '',
   })
+  const [editingMilestone, setEditingMilestone] = useState<string | null>(null)
+  const [editFormData, setEditFormData] = useState<Record<string, {
+    name: string
+    description: string
+    category: string
+    isImportant: boolean
+    dueDate: string
+  }>>({})
+  const [categorySuggestions, setCategorySuggestions] = useState<string[]>([])
+  const [showCategorySuggestions, setShowCategorySuggestions] = useState<Record<string, boolean>>({})
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set())
+
+  // Get existing categories from milestones
+  const getExistingCategories = (): string[] => {
+    const categories = new Set<string>()
+    milestones.forEach(m => {
+      const category = (m as any).category
+      if (category && category.trim()) {
+        categories.add(category.trim())
+      }
+    })
+    return Array.from(categories).sort()
+  }
 
   // Expand all categories by default on mount
   useEffect(() => {
@@ -416,6 +438,73 @@ export default function MilestoneList({ projectId, milestones, onUpdate }: Miles
       alert('Failed to create milestone')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleEdit = (milestone: Milestone & { category?: string | null; isImportant?: boolean }) => {
+    setEditingMilestone(milestone.id)
+    setEditFormData({
+      [milestone.id]: {
+        name: milestone.name,
+        description: milestone.description || '',
+        category: (milestone as any).category || '',
+        isImportant: (milestone as any).isImportant || false,
+        dueDate: milestone.dueDate ? new Date(milestone.dueDate).toISOString().split('T')[0] : '',
+      },
+    })
+  }
+
+  const handleUpdate = async (milestoneId: string, e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+
+    try {
+      const formData = editFormData[milestoneId]
+      const response = await fetch(`/api/milestones/${milestoneId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: formData.name,
+          description: formData.description,
+          category: formData.category || null,
+          isImportant: formData.isImportant,
+          dueDate: formData.dueDate || null,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to update milestone')
+      }
+
+      setEditingMilestone(null)
+      setEditFormData({})
+      onUpdate()
+    } catch (error) {
+      console.error('Error updating milestone:', error)
+      alert('Failed to update milestone')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleCategoryInputChange = (value: string, isEdit: boolean = false, milestoneId?: string) => {
+    const input = value.toLowerCase().trim()
+    if (input.length > 0) {
+      const existing = getExistingCategories()
+      const filtered = existing.filter(cat => cat.toLowerCase().includes(input))
+      setCategorySuggestions(filtered)
+      if (isEdit && milestoneId) {
+        setShowCategorySuggestions(prev => ({ ...prev, [milestoneId]: true }))
+      } else {
+        setShowCategorySuggestions(prev => ({ ...prev, 'create': true }))
+      }
+    } else {
+      setCategorySuggestions([])
+      if (isEdit && milestoneId) {
+        setShowCategorySuggestions(prev => ({ ...prev, [milestoneId]: false }))
+      } else {
+        setShowCategorySuggestions(prev => ({ ...prev, 'create': false }))
+      }
     }
   }
 
@@ -842,13 +931,44 @@ export default function MilestoneList({ projectId, milestones, onUpdate }: Miles
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                     Category
                   </label>
-                  <input
-                    type="text"
-                    value={formData.category}
-                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                    placeholder="Optional category/group"
-                    className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2"
-                  />
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={formData.category}
+                      onChange={(e) => {
+                        setFormData({ ...formData, category: e.target.value })
+                        handleCategoryInputChange(e.target.value, false)
+                      }}
+                      onFocus={() => {
+                        if (formData.category) {
+                          handleCategoryInputChange(formData.category, false)
+                        }
+                      }}
+                      onBlur={() => {
+                        setTimeout(() => setShowCategorySuggestions(prev => ({ ...prev, 'create': false })), 200)
+                      }}
+                      placeholder="Optional category/group"
+                      className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2"
+                    />
+                    {showCategorySuggestions['create'] && categorySuggestions.length > 0 && (
+                      <div className="absolute z-10 mt-1 w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-40 overflow-auto">
+                        {categorySuggestions.map((cat, idx) => (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => {
+                              setFormData({ ...formData, category: cat })
+                              setCategorySuggestions([])
+                              setShowCategorySuggestions(prev => ({ ...prev, 'create': false }))
+                            }}
+                            className="w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm text-gray-900 dark:text-white"
+                          >
+                            {cat}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div className="flex items-center">
                   <input
@@ -1064,6 +1184,13 @@ export default function MilestoneList({ projectId, milestones, onUpdate }: Miles
                       {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                     </button>
                     <button
+                      onClick={() => handleEdit(milestone)}
+                      className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                      title="Edit milestone"
+                    >
+                      <Edit className="h-4 w-4" />
+                    </button>
+                    <button
                       onClick={() => handleDelete(milestone.id)}
                       className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
                       title="Delete milestone"
@@ -1072,6 +1199,154 @@ export default function MilestoneList({ projectId, milestones, onUpdate }: Miles
                     </button>
                   </div>
                 </div>
+
+                {/* Edit Dialog */}
+                {editingMilestone === milestone.id && (
+                  <Dialog.Root open={editingMilestone === milestone.id} onOpenChange={(open) => {
+                    if (!open) {
+                      setEditingMilestone(null)
+                      setEditFormData({})
+                    }
+                  }}>
+                    <Dialog.Portal>
+                      <Dialog.Overlay className="fixed inset-0 bg-black/50" />
+                      <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 w-full max-w-md">
+                        <Dialog.Title className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                          Edit Milestone
+                        </Dialog.Title>
+                        <form onSubmit={(e) => handleUpdate(milestone.id, e)} className="space-y-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                              Name *
+                            </label>
+                            <input
+                              type="text"
+                              required
+                              value={editFormData[milestone.id]?.name || ''}
+                              onChange={(e) => setEditFormData(prev => ({
+                                ...prev,
+                                [milestone.id]: { ...(prev[milestone.id] || { name: '', description: '', category: '', isImportant: false, dueDate: '' }), name: e.target.value }
+                              }))}
+                              className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                              Description
+                            </label>
+                            <textarea
+                              value={editFormData[milestone.id]?.description || ''}
+                              onChange={(e) => setEditFormData(prev => ({
+                                ...prev,
+                                [milestone.id]: { ...(prev[milestone.id] || { name: '', description: '', category: '', isImportant: false, dueDate: '' }), description: e.target.value }
+                              }))}
+                              rows={3}
+                              className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                              Category
+                            </label>
+                            <div className="relative">
+                              <input
+                                type="text"
+                                value={editFormData[milestone.id]?.category || ''}
+                                onChange={(e) => {
+                                  setEditFormData(prev => ({
+                                    ...prev,
+                                    [milestone.id]: { ...(prev[milestone.id] || { name: '', description: '', category: '', isImportant: false, dueDate: '' }), category: e.target.value }
+                                  }))
+                                  handleCategoryInputChange(e.target.value, true, milestone.id)
+                                }}
+                                onFocus={() => {
+                                  const category = editFormData[milestone.id]?.category || ''
+                                  if (category) {
+                                    handleCategoryInputChange(category, true, milestone.id)
+                                  }
+                                }}
+                                onBlur={() => {
+                                  setTimeout(() => setShowCategorySuggestions(prev => ({ ...prev, [milestone.id]: false })), 200)
+                                }}
+                                placeholder="Optional category/group"
+                                className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2"
+                              />
+                              {showCategorySuggestions[milestone.id] && categorySuggestions.length > 0 && (
+                                <div className="absolute z-10 mt-1 w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-40 overflow-auto">
+                                  {categorySuggestions.map((cat, idx) => (
+                                    <button
+                                      key={idx}
+                                      type="button"
+                                      onClick={() => {
+                                        setEditFormData(prev => ({
+                                          ...prev,
+                                          [milestone.id]: { ...(prev[milestone.id] || { name: '', description: '', category: '', isImportant: false, dueDate: '' }), category: cat }
+                                        }))
+                                        setCategorySuggestions([])
+                                        setShowCategorySuggestions(prev => ({ ...prev, [milestone.id]: false }))
+                                      }}
+                                      className="w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm text-gray-900 dark:text-white"
+                                    >
+                                      {cat}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center">
+                            <input
+                              type="checkbox"
+                              id={`edit-milestone-important-${milestone.id}`}
+                              checked={editFormData[milestone.id]?.isImportant || false}
+                              onChange={(e) => setEditFormData(prev => ({
+                                ...prev,
+                                [milestone.id]: { ...(prev[milestone.id] || { name: '', description: '', category: '', isImportant: false, dueDate: '' }), isImportant: e.target.checked }
+                              }))}
+                              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                            />
+                            <label htmlFor={`edit-milestone-important-${milestone.id}`} className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
+                              Mark as Important
+                            </label>
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                              Due Date
+                            </label>
+                            <input
+                              type="date"
+                              value={editFormData[milestone.id]?.dueDate || ''}
+                              onChange={(e) => setEditFormData(prev => ({
+                                ...prev,
+                                [milestone.id]: { ...(prev[milestone.id] || { name: '', description: '', category: '', isImportant: false, dueDate: '' }), dueDate: e.target.value }
+                              }))}
+                              className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2"
+                            />
+                          </div>
+                          <div className="flex justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingMilestone(null)
+                                setEditFormData({})
+                              }}
+                              className="rounded-md bg-gray-200 dark:bg-gray-700 px-3 py-2 text-sm font-semibold text-gray-900 dark:text-white"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="submit"
+                              disabled={loading}
+                              className="rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-500 disabled:opacity-50"
+                            >
+                              {loading ? 'Updating...' : 'Update'}
+                            </button>
+                          </div>
+                        </form>
+                      </Dialog.Content>
+                    </Dialog.Portal>
+                  </Dialog.Root>
+                )}
 
                 {/* Expanded Content */}
                 {isExpanded && (
