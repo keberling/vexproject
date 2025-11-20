@@ -4,10 +4,12 @@ import { useState, useEffect, useRef } from 'react'
 import { MapPin, X } from 'lucide-react'
 
 interface AddressSuggestion {
-  display_name: string
-  place_id: number
-  lat: string
-  lon: string
+  description: string
+  place_id: string
+  structured_formatting?: {
+    main_text: string
+    secondary_text: string
+  }
 }
 
 interface AddressAutocompleteProps {
@@ -34,8 +36,41 @@ export default function AddressAutocomplete({
   const inputRef = useRef<HTMLInputElement>(null)
   const suggestionsRef = useRef<HTMLDivElement>(null)
   const debounceRef = useRef<NodeJS.Timeout>()
+  const autocompleteServiceRef = useRef<any>(null)
+  const placesServiceRef = useRef<any>(null)
 
-  // Fetch address suggestions from OpenStreetMap Nominatim API
+  // Initialize Google Places Autocomplete service
+  useEffect(() => {
+    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+    if (!apiKey) {
+      console.warn('Google Maps API key not found. Address autocomplete will not work.')
+      return
+    }
+
+    // Load Google Maps script if not already loaded
+    if (!window.google || !window.google.maps) {
+      const script = document.createElement('script')
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`
+      script.async = true
+      script.defer = true
+      script.onload = () => {
+        if (window.google && window.google.maps && window.google.maps.places) {
+          autocompleteServiceRef.current = new window.google.maps.places.AutocompleteService()
+          placesServiceRef.current = new window.google.maps.places.PlacesService(
+            document.createElement('div')
+          )
+        }
+      }
+      document.head.appendChild(script)
+    } else {
+      autocompleteServiceRef.current = new window.google.maps.places.AutocompleteService()
+      placesServiceRef.current = new window.google.maps.places.PlacesService(
+        document.createElement('div')
+      )
+    }
+  }, [])
+
+  // Fetch address suggestions from Google Places Autocomplete API
   const fetchSuggestions = async (query: string) => {
     if (!query || query.length < 3) {
       setSuggestions([])
@@ -43,31 +78,58 @@ export default function AddressAutocomplete({
       return
     }
 
+    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+    if (!apiKey) {
+      // Fallback to manual entry if no API key
+      return
+    }
+
     setIsLoading(true)
     try {
-      // Using OpenStreetMap Nominatim API (free, no API key required)
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&addressdetails=1`,
-        {
-          headers: {
-            'User-Agent': 'VEXProjectManagement/1.0', // Required by Nominatim
+      // Use Google Places Autocomplete API
+      if (autocompleteServiceRef.current) {
+        autocompleteServiceRef.current.getPlacePredictions(
+          {
+            input: query,
+            types: ['address'],
+            componentRestrictions: { country: 'us' }, // Restrict to US addresses
           },
-        }
-      )
-
-      if (response.ok) {
-        const data = await response.json()
-        setSuggestions(data)
-        setShowSuggestions(data.length > 0)
+          (predictions: AddressSuggestion[] | null, status: string) => {
+            if (status === window.google.maps.places.PlacesServiceStatus.OK && predictions) {
+              setSuggestions(predictions)
+              setShowSuggestions(predictions.length > 0)
+            } else {
+              setSuggestions([])
+              setShowSuggestions(false)
+            }
+            setIsLoading(false)
+          }
+        )
       } else {
-        setSuggestions([])
-        setShowSuggestions(false)
+        // Fallback: Use REST API if service not initialized
+        const response = await fetch(
+          `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(query)}&types=address&components=country:us&key=${apiKey}`
+        )
+
+        if (response.ok) {
+          const data = await response.json()
+          if (data.status === 'OK' && data.predictions) {
+            setSuggestions(data.predictions)
+            setShowSuggestions(data.predictions.length > 0)
+          } else {
+            setSuggestions([])
+            setShowSuggestions(false)
+          }
+        } else {
+          setSuggestions([])
+          setShowSuggestions(false)
+        }
+        setIsLoading(false)
       }
     } catch (error) {
       console.error('Error fetching address suggestions:', error)
       setSuggestions([])
       setShowSuggestions(false)
-    } finally {
       setIsLoading(false)
     }
   }
@@ -117,8 +179,49 @@ export default function AddressAutocomplete({
     }
   }
 
-  const handleSelectSuggestion = (suggestion: AddressSuggestion) => {
-    onChange(suggestion.display_name)
+  const handleSelectSuggestion = async (suggestion: AddressSuggestion) => {
+    // Get full address details from place_id
+    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+    let fullAddress = suggestion.description
+
+    if (apiKey && placesServiceRef.current) {
+      try {
+        const request = {
+          placeId: suggestion.place_id,
+          fields: ['formatted_address'],
+        }
+        placesServiceRef.current.getDetails(request, (place: any, status: string) => {
+          if (status === window.google.maps.places.PlacesServiceStatus.OK && place) {
+            fullAddress = place.formatted_address
+            onChange(fullAddress)
+          } else {
+            onChange(suggestion.description)
+          }
+        })
+      } catch (error) {
+        console.error('Error getting place details:', error)
+        onChange(suggestion.description)
+      }
+    } else if (apiKey) {
+      // Fallback: Use REST API
+      try {
+        const response = await fetch(
+          `https://maps.googleapis.com/maps/api/place/details/json?place_id=${suggestion.place_id}&fields=formatted_address&key=${apiKey}`
+        )
+        if (response.ok) {
+          const data = await response.json()
+          if (data.result && data.result.formatted_address) {
+            fullAddress = data.result.formatted_address
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching place details:', error)
+      }
+      onChange(fullAddress)
+    } else {
+      onChange(suggestion.description)
+    }
+
     setShowSuggestions(false)
     setSelectedIndex(-1)
     inputRef.current?.blur()
@@ -206,12 +309,25 @@ export default function AddressAutocomplete({
             >
               <div className="flex items-start gap-2">
                 <MapPin className="h-4 w-4 text-gray-400 mt-0.5 flex-shrink-0" />
-                <span className="flex-1">{suggestion.display_name}</span>
+                <div className="flex-1">
+                  {suggestion.structured_formatting ? (
+                    <>
+                      <div className="font-medium">{suggestion.structured_formatting.main_text}</div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">
+                        {suggestion.structured_formatting.secondary_text}
+                      </div>
+                    </>
+                  ) : (
+                    <span>{suggestion.description}</span>
+                  )}
+                </div>
               </div>
             </button>
           ))}
           <div className="px-4 py-2 text-xs text-gray-500 dark:text-gray-400 border-t border-gray-200 dark:border-gray-700">
-            Powered by OpenStreetMap • You can also type manually
+            {process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY 
+              ? 'Powered by Google Places • You can also type manually'
+              : 'Type address manually (Google Maps API key not configured)'}
           </div>
         </div>
       )}
