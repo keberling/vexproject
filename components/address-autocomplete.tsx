@@ -43,7 +43,7 @@ export default function AddressAutocomplete({
   useEffect(() => {
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
     if (!apiKey) {
-      console.warn('Google Maps API key not found. Address autocomplete will not work.')
+      console.warn('Google Maps API key not found. Address autocomplete will use REST API fallback.')
       return
     }
 
@@ -55,18 +55,33 @@ export default function AddressAutocomplete({
       script.defer = true
       script.onload = () => {
         if (window.google && window.google.maps && window.google.maps.places) {
-          autocompleteServiceRef.current = new window.google.maps.places.AutocompleteService()
-          placesServiceRef.current = new window.google.maps.places.PlacesService(
-            document.createElement('div')
-          )
+          try {
+            autocompleteServiceRef.current = new window.google.maps.places.AutocompleteService()
+            placesServiceRef.current = new window.google.maps.places.PlacesService(
+              document.createElement('div')
+            )
+            console.log('Google Places Autocomplete service initialized')
+          } catch (error) {
+            console.error('Error initializing Google Places service:', error)
+          }
+        } else {
+          console.warn('Google Maps Places library not available')
         }
+      }
+      script.onerror = () => {
+        console.error('Failed to load Google Maps script. Check your API key and network connection.')
       }
       document.head.appendChild(script)
     } else {
-      autocompleteServiceRef.current = new window.google.maps.places.AutocompleteService()
-      placesServiceRef.current = new window.google.maps.places.PlacesService(
-        document.createElement('div')
-      )
+      try {
+        autocompleteServiceRef.current = new window.google.maps.places.AutocompleteService()
+        placesServiceRef.current = new window.google.maps.places.PlacesService(
+          document.createElement('div')
+        )
+        console.log('Google Places Autocomplete service initialized (already loaded)')
+      } catch (error) {
+        console.error('Error initializing Google Places service:', error)
+      }
     }
   }, [])
 
@@ -80,14 +95,16 @@ export default function AddressAutocomplete({
 
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
     if (!apiKey) {
-      // Fallback to manual entry if no API key
+      console.warn('Google Maps API key not configured. Add NEXT_PUBLIC_GOOGLE_MAPS_API_KEY to your .env file.')
+      setSuggestions([])
+      setShowSuggestions(false)
       return
     }
 
     setIsLoading(true)
     try {
-      // Use Google Places Autocomplete API
-      if (autocompleteServiceRef.current) {
+      // Try using Google Places Autocomplete service first
+      if (autocompleteServiceRef.current && window.google && window.google.maps && window.google.maps.places) {
         autocompleteServiceRef.current.getPlacePredictions(
           {
             input: query,
@@ -99,6 +116,7 @@ export default function AddressAutocomplete({
               setSuggestions(predictions)
               setShowSuggestions(predictions.length > 0)
             } else {
+              console.warn('Google Places API status:', status)
               setSuggestions([])
               setShowSuggestions(false)
             }
@@ -107,20 +125,29 @@ export default function AddressAutocomplete({
         )
       } else {
         // Fallback: Use REST API if service not initialized
+        console.log('Using REST API fallback for address autocomplete')
         const response = await fetch(
           `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(query)}&types=address&components=country:us&key=${apiKey}`
         )
 
         if (response.ok) {
           const data = await response.json()
+          console.log('Google Places API response:', data.status, data.predictions?.length || 0, 'results')
           if (data.status === 'OK' && data.predictions) {
             setSuggestions(data.predictions)
             setShowSuggestions(data.predictions.length > 0)
+          } else if (data.status === 'REQUEST_DENIED') {
+            console.error('Google Places API request denied. Check your API key and enable Places API in Google Cloud Console.')
+          } else if (data.status === 'OVER_QUERY_LIMIT') {
+            console.error('Google Places API quota exceeded.')
           } else {
+            console.warn('Google Places API status:', data.status, data.error_message || '')
             setSuggestions([])
             setShowSuggestions(false)
           }
         } else {
+          const errorText = await response.text()
+          console.error('Google Places API error:', response.status, errorText)
           setSuggestions([])
           setShowSuggestions(false)
         }
