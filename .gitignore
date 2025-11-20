@@ -36,7 +36,9 @@ yarn-error.log*
 next-env.d.ts
 
 # prisma
-/prisma
+# Ignore local SQLite dev databases, but keep schema/seeds/templates in git
+/prisma/*.db
+/prisma/**/*.db
 
 # uploads
 /uploads
