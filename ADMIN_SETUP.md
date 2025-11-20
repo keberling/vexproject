@@ -101,8 +101,9 @@ Once you have admin privileges:
 1. Click "Create Backup" to download a zipped backup
 2. Optionally check "Upload to SharePoint" to also upload to SharePoint
 3. The backup includes:
-   - Complete database file (`database.db`)
-   - Metadata file (`backup-metadata.json`)
+   - Complete database export as JSON (`backup-data.json`)
+   - Metadata with record counts
+   - All data from all tables (users, projects, milestones, files, etc.)
 
 ### Database Restore
 
@@ -113,7 +114,7 @@ Once you have admin privileges:
 
 ### Scheduled Backups
 
-Scheduled backups can be set up to automatically create backups and upload them to SharePoint.
+Scheduled backups are built into the application and can be configured directly from the Admin page. The system uses `node-cron` to automatically create backups and upload them to SharePoint.
 
 #### Setup Scheduled Backups
 
@@ -129,52 +130,29 @@ Scheduled backups can be set up to automatically create backups and upload them 
    openssl rand -base64 32
    ```
 
-2. **Set Up Cron Job or Scheduler**
+2. **Configure Schedule in Admin Page**
 
-   Use a cron job (Linux/Mac) or Task Scheduler (Windows) to call the backup endpoint:
+   - Navigate to the Admin page
+   - Go to the "Scheduled Backups" section
+   - Enable scheduled backups
+   - Select frequency (10min, 30min, hourly, daily, weekly)
+   - Optionally set a start time
+   - Click "Save Schedule"
 
-   ```bash
-   # Example: Daily backup at 2 AM
-   0 2 * * * curl -X POST http://localhost:3000/api/admin/scheduled-backup \
-     -H "Authorization: Bearer your-secret-key-here"
-   ```
-
-   Or use a service like:
-   - **cron** (Linux/Mac)
-   - **Task Scheduler** (Windows)
-   - **GitHub Actions** (for cloud deployments)
-   - **Vercel Cron** (for Vercel deployments)
+   The scheduler will automatically start when the server starts and will run backups according to your schedule.
 
 3. **Requirements for Scheduled Backups**
 
    - At least one admin user must have Microsoft SSO enabled
    - The admin user must have a valid `accessToken`
    - SharePoint must be configured (see `MICROSOFT_SSO_SETUP.md`)
+   - `ADMIN_BACKUP_SECRET` must be set in environment variables
 
-#### Vercel Cron Example
+#### Viewing Scheduled Backups
 
-If deploying to Vercel, add to `vercel.json`:
-
-```json
-{
-  "crons": [
-    {
-      "path": "/api/admin/scheduled-backup",
-      "schedule": "0 2 * * *"
-    }
-  ]
-}
-```
-
-And update the route to handle Vercel cron headers:
-
-```typescript
-// In app/api/admin/scheduled-backup/route.ts
-const cronSecret = request.headers.get('authorization')
-if (cronSecret !== `Bearer ${process.env.ADMIN_BACKUP_SECRET}`) {
-  return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-}
-```
+- The "Latest Successful Backups" section shows the 3 most recent backups (both manual and scheduled)
+- Each backup shows the file name, size, creation date, and a download link
+- Backups are automatically uploaded to SharePoint in the `/Backups/` folder
 
 ## Security Notes
 

@@ -66,9 +66,12 @@ AUTH_TRUST_HOST="false"  # Set to "true" only in development
 NEXTAUTH_URL="https://yourdomain.com"
 NEXTAUTH_SECRET="your-production-nextauth-secret"
 
-# SharePoint (optional)
-SHAREPOINT_SITE_ID=""
-SHAREPOINT_DRIVE_ID=""
+# SharePoint (recommended for production)
+SHAREPOINT_SITE_ID="your-sharepoint-site-id"
+SHAREPOINT_DRIVE_ID=""  # Optional, usually not needed
+
+# Admin Backup Secret (for scheduled backups)
+ADMIN_BACKUP_SECRET="your-secure-backup-secret"
 ```
 
 ## Production Considerations

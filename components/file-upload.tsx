@@ -76,7 +76,7 @@ export default function FileUpload({ projectId, onUpload }: FileUploadProps) {
         <p className="mt-2 text-sm text-gray-500 dark:text-gray-400 text-center">Uploading...</p>
       )}
       <p className="mt-4 text-xs text-gray-500 dark:text-gray-400">
-        Note: SharePoint integration is disabled by default. Files are currently stored locally.
+        Files are automatically uploaded to SharePoint if Microsoft SSO is configured. Otherwise, files are stored locally.
       </p>
     </div>
   )

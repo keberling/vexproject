@@ -1,8 +1,7 @@
-// Microsoft SSO Integration (Disabled by default)
-// To enable:
-// 1. Uncomment the environment variables in .env
-// 2. Install @azure/msal-node and @azure/msal-browser
-// 3. Uncomment and configure the functions below
+// Microsoft SSO Integration
+// This file contains legacy MSAL code that is no longer used.
+// The application now uses NextAuth.js v5 with Azure AD provider.
+// See auth.ts for the current authentication implementation.
 
 /*
 import { ConfidentialClientApplication } from '@azure/msal-node'
