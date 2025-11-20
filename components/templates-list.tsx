@@ -450,6 +450,18 @@ export default function TemplatesList({ templates: initialTemplates }: Templates
                                       className="block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-xs bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-2 py-1"
                                       placeholder="Task description (optional)"
                                     />
+                                    <select
+                                      value={task.assignedToId || ''}
+                                      onChange={(e) => updateTask(index, taskIndex, 'assignedToId', e.target.value || null)}
+                                      className="block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-xs bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-2 py-1"
+                                    >
+                                      <option value="">Unassigned</option>
+                                      {users.map((user) => (
+                                        <option key={user.id} value={user.id}>
+                                          {user.name || user.email}
+                                        </option>
+                                      ))}
+                                    </select>
                                   </div>
                                   {(milestone.tasks || []).length > 1 && (
                                     <button
