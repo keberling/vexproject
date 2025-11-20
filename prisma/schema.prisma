@@ -37,9 +37,12 @@ model Project {
   name          String
   address       String?
   description   String?
-  gcContact     String?   // GC Contact
-  cdsContact    String?   // CDS Contact
-  franchiseOwnerContact String? // Franchise Owner Contact
+  gcContactName     String?   // GC Contact Name
+  gcContactEmail    String?   // GC Contact Email
+  cdsContactName     String?   // CDS Contact Name
+  cdsContactEmail    String?   // CDS Contact Email
+  franchiseOwnerContactName String? // Franchise Owner Contact Name
+  franchiseOwnerContactEmail String? // Franchise Owner Contact Email
   status        String        @default("INITIAL_CONTACT")
   templateId    String?
   template      ProjectTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
@@ -66,6 +69,7 @@ model Milestone {
   description   String?
   category      String?         // Category/group for milestones
   status        String          @default("PENDING")
+  isImportant   Boolean         @default(false) // Mark milestone as important
   dueDate       DateTime?
   completedDate DateTime?
   createdAt     DateTime  @default(now())
@@ -200,6 +204,7 @@ model Task {
   name          String
   description   String?
   status        String          @default("PENDING")
+  isImportant   Boolean         @default(false) // Mark task as important
   dueDate       DateTime?
   completedDate DateTime?
   createdAt     DateTime  @default(now())

@@ -51,6 +51,7 @@ export async function PATCH(
         ...(body.status && { status: body.status }),
         ...(body.dueDate !== undefined && { dueDate: body.dueDate ? new Date(body.dueDate) : null }),
         ...(body.assignedToId !== undefined && { assignedToId: body.assignedToId || null }),
+        ...(body.isImportant !== undefined && { isImportant: body.isImportant }),
         ...(body.status === 'COMPLETED' && !task.completedDate && {
           completedDate: new Date(),
         }),

@@ -47,6 +47,7 @@ export async function PATCH(
         ...(body.description !== undefined && { description: body.description }),
         ...(body.status && { status: body.status }),
         ...(body.dueDate !== undefined && { dueDate: body.dueDate ? new Date(body.dueDate) : null }),
+        ...(body.isImportant !== undefined && { isImportant: body.isImportant }),
         ...(body.status === 'COMPLETED' && !milestone.completedDate && {
           completedDate: new Date(),
         }),

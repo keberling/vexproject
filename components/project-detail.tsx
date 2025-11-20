@@ -9,7 +9,7 @@ import FileList from './file-list'
 import CalendarEventList from './calendar-event-list'
 import CommunicationsList from './communications-list'
 import AddressAutocomplete from './address-autocomplete'
-import { Trash2, Edit2, Save, X } from 'lucide-react'
+import { Trash2, Edit2, Save, X, Star } from 'lucide-react'
 import { projectStatusColors, formatStatus } from '@/lib/status-colors'
 
 interface ProjectDetailProps {
@@ -77,9 +77,12 @@ export default function ProjectDetail({ project: initialProject }: ProjectDetail
     name: project.name,
     address: (project as any).address || '',
     description: project.description || '',
-    gcContact: (project as any).gcContact || '',
-    cdsContact: (project as any).cdsContact || '',
-    franchiseOwnerContact: (project as any).franchiseOwnerContact || '',
+    gcContactName: (project as any).gcContactName || '',
+    gcContactEmail: (project as any).gcContactEmail || '',
+    cdsContactName: (project as any).cdsContactName || '',
+    cdsContactEmail: (project as any).cdsContactEmail || '',
+    franchiseOwnerContactName: (project as any).franchiseOwnerContactName || '',
+    franchiseOwnerContactEmail: (project as any).franchiseOwnerContactEmail || '',
     status: project.status,
   })
 
@@ -174,19 +177,22 @@ export default function ProjectDetail({ project: initialProject }: ProjectDetail
                       <span className="font-medium">Address:</span> {(project as any).address}
                     </span>
                   )}
-                  {(project as any).gcContact && (
+                  {((project as any).gcContactName || (project as any).gcContactEmail) && (
                     <span>
-                      <span className="font-medium">GC Contact:</span> {(project as any).gcContact}
+                      <span className="font-medium">GC Contact:</span>{' '}
+                      {[((project as any).gcContactName || ''), ((project as any).gcContactEmail || '')].filter(Boolean).join(' - ')}
                     </span>
                   )}
-                  {(project as any).cdsContact && (
+                  {((project as any).cdsContactName || (project as any).cdsContactEmail) && (
                     <span>
-                      <span className="font-medium">CDS Contact:</span> {(project as any).cdsContact}
+                      <span className="font-medium">CDS Contact:</span>{' '}
+                      {[((project as any).cdsContactName || ''), ((project as any).cdsContactEmail || '')].filter(Boolean).join(' - ')}
                     </span>
                   )}
-                  {(project as any).franchiseOwnerContact && (
+                  {((project as any).franchiseOwnerContactName || (project as any).franchiseOwnerContactEmail) && (
                     <span>
-                      <span className="font-medium">Franchise Owner Contact:</span> {(project as any).franchiseOwnerContact}
+                      <span className="font-medium">Franchise Owner Contact:</span>{' '}
+                      {[((project as any).franchiseOwnerContactName || ''), ((project as any).franchiseOwnerContactEmail || '')].filter(Boolean).join(' - ')}
                     </span>
                   )}
                   <span>
@@ -218,31 +224,61 @@ export default function ProjectDetail({ project: initialProject }: ProjectDetail
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">GC Contact</label>
-                  <input
-                    type="text"
-                    value={formData.gcContact}
-                    onChange={(e) => setFormData({ ...formData, gcContact: e.target.value })}
-                    className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2"
-                  />
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">GC Contact</label>
+                  <div className="space-y-2">
+                    <input
+                      type="text"
+                      value={formData.gcContactName}
+                      onChange={(e) => setFormData({ ...formData, gcContactName: e.target.value })}
+                      placeholder="GC Contact Name"
+                      className="block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2"
+                    />
+                    <input
+                      type="email"
+                      value={formData.gcContactEmail}
+                      onChange={(e) => setFormData({ ...formData, gcContactEmail: e.target.value })}
+                      placeholder="GC Contact Email"
+                      className="block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2"
+                    />
+                  </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">CDS Contact</label>
-                  <input
-                    type="text"
-                    value={formData.cdsContact}
-                    onChange={(e) => setFormData({ ...formData, cdsContact: e.target.value })}
-                    className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2"
-                  />
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">CDS Contact</label>
+                  <div className="space-y-2">
+                    <input
+                      type="text"
+                      value={formData.cdsContactName}
+                      onChange={(e) => setFormData({ ...formData, cdsContactName: e.target.value })}
+                      placeholder="CDS Contact Name"
+                      className="block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2"
+                    />
+                    <input
+                      type="email"
+                      value={formData.cdsContactEmail}
+                      onChange={(e) => setFormData({ ...formData, cdsContactEmail: e.target.value })}
+                      placeholder="CDS Contact Email"
+                      className="block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2"
+                    />
+                  </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Franchise Owner Contact</label>
-                  <input
-                    type="text"
-                    value={formData.franchiseOwnerContact}
-                    onChange={(e) => setFormData({ ...formData, franchiseOwnerContact: e.target.value })}
-                    className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2"
-                  />
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Franchise Owner Contact</label>
+                  <div className="space-y-2">
+                    <input
+                      type="text"
+                      value={formData.franchiseOwnerContactName}
+                      onChange={(e) => setFormData({ ...formData, franchiseOwnerContactName: e.target.value })}
+                      placeholder="Franchise Owner Contact Name"
+                      className="block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2"
+                    />
+                    <input
+                      type="email"
+                      value={formData.franchiseOwnerContactEmail}
+                      onChange={(e) => setFormData({ ...formData, franchiseOwnerContactEmail: e.target.value })}
+                      placeholder="Franchise Owner Contact Email"
+                      className="block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2"
+                    />
+                  </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Status</label>
@@ -288,9 +324,12 @@ export default function ProjectDetail({ project: initialProject }: ProjectDetail
                       name: project.name,
                       address: (project as any).address || '',
                       description: project.description || '',
-                      gcContact: (project as any).gcContact || '',
-                      cdsContact: (project as any).cdsContact || '',
-                      franchiseOwnerContact: (project as any).franchiseOwnerContact || '',
+                      gcContactName: (project as any).gcContactName || '',
+                      gcContactEmail: (project as any).gcContactEmail || '',
+                      cdsContactName: (project as any).cdsContactName || '',
+                      cdsContactEmail: (project as any).cdsContactEmail || '',
+                      franchiseOwnerContactName: (project as any).franchiseOwnerContactName || '',
+                      franchiseOwnerContactEmail: (project as any).franchiseOwnerContactEmail || '',
                       status: project.status,
                     })
                   }}
@@ -322,6 +361,61 @@ export default function ProjectDetail({ project: initialProject }: ProjectDetail
           </div>
         </div>
       </div>
+
+      {/* Important Items Header */}
+      {(() => {
+        const importantMilestones = project.milestones.filter((m: any) => m.isImportant)
+        const importantTasks = project.milestones.flatMap((m: any) => 
+          (m.tasks || []).filter((t: any) => t.isImportant).map((t: any) => ({ ...t, milestoneName: m.name }))
+        )
+        
+        if (importantMilestones.length === 0 && importantTasks.length === 0) {
+          return null
+        }
+        
+        return (
+          <div className="mb-6 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Star className="h-5 w-5 text-yellow-600 dark:text-yellow-400 fill-yellow-600 dark:fill-yellow-400" />
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Important Items</h2>
+            </div>
+            <div className="space-y-3">
+              {importantMilestones.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Important Milestones:</h3>
+                  <div className="space-y-1">
+                    {importantMilestones.map((milestone: any) => (
+                      <div key={milestone.id} className="flex items-center gap-2 text-sm text-gray-900 dark:text-white">
+                        <Star className="h-4 w-4 text-yellow-600 dark:text-yellow-400 fill-yellow-600 dark:fill-yellow-400" />
+                        <span>{milestone.name}</span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                          ({milestone.status})
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {importantTasks.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Important Tasks:</h3>
+                  <div className="space-y-1">
+                    {importantTasks.map((task: any) => (
+                      <div key={task.id} className="flex items-center gap-2 text-sm text-gray-900 dark:text-white">
+                        <Star className="h-4 w-4 text-yellow-600 dark:text-yellow-400 fill-yellow-600 dark:fill-yellow-400" />
+                        <span>{task.name}</span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                          ({task.milestoneName}) - {task.status}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )
+      })()}
 
       {/* Main Content - Stacked Layout */}
       <div className="space-y-6">

@@ -28,9 +28,12 @@ export default function NewProjectForm() {
     name: '',
     address: '',
     description: '',
-    gcContact: '',
-    cdsContact: '',
-    franchiseOwnerContact: '',
+    gcContactName: '',
+    gcContactEmail: '',
+    cdsContactName: '',
+    cdsContactEmail: '',
+    franchiseOwnerContactName: '',
+    franchiseOwnerContactEmail: '',
     templateId: '',
   })
 
@@ -183,48 +186,81 @@ export default function NewProjectForm() {
       </div>
 
       <div>
-        <label htmlFor="gcContact" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
           GC Contact
         </label>
-        <input
-          type="text"
-          name="gcContact"
-          id="gcContact"
-          value={formData.gcContact}
-          onChange={handleChange}
-          className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2"
-          placeholder="GC contact information"
-        />
+        <div className="space-y-2">
+          <input
+            type="text"
+            name="gcContactName"
+            id="gcContactName"
+            value={formData.gcContactName}
+            onChange={handleChange}
+            className="block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2"
+            placeholder="GC Contact Name"
+          />
+          <input
+            type="email"
+            name="gcContactEmail"
+            id="gcContactEmail"
+            value={formData.gcContactEmail}
+            onChange={handleChange}
+            className="block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2"
+            placeholder="GC Contact Email"
+          />
+        </div>
       </div>
 
       <div>
-        <label htmlFor="cdsContact" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
           CDS Contact
         </label>
-        <input
-          type="text"
-          name="cdsContact"
-          id="cdsContact"
-          value={formData.cdsContact}
-          onChange={handleChange}
-          className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2"
-          placeholder="CDS contact information"
-        />
+        <div className="space-y-2">
+          <input
+            type="text"
+            name="cdsContactName"
+            id="cdsContactName"
+            value={formData.cdsContactName}
+            onChange={handleChange}
+            className="block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2"
+            placeholder="CDS Contact Name"
+          />
+          <input
+            type="email"
+            name="cdsContactEmail"
+            id="cdsContactEmail"
+            value={formData.cdsContactEmail}
+            onChange={handleChange}
+            className="block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2"
+            placeholder="CDS Contact Email"
+          />
+        </div>
       </div>
 
       <div>
-        <label htmlFor="franchiseOwnerContact" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
           Franchise Owner Contact
         </label>
-        <input
-          type="text"
-          name="franchiseOwnerContact"
-          id="franchiseOwnerContact"
-          value={formData.franchiseOwnerContact}
-          onChange={handleChange}
-          className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2"
-          placeholder="Franchise owner contact information"
-        />
+        <div className="space-y-2">
+          <input
+            type="text"
+            name="franchiseOwnerContactName"
+            id="franchiseOwnerContactName"
+            value={formData.franchiseOwnerContactName}
+            onChange={handleChange}
+            className="block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2"
+            placeholder="Franchise Owner Contact Name"
+          />
+          <input
+            type="email"
+            name="franchiseOwnerContactEmail"
+            id="franchiseOwnerContactEmail"
+            value={formData.franchiseOwnerContactEmail}
+            onChange={handleChange}
+            className="block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2"
+            placeholder="Franchise Owner Contact Email"
+          />
+        </div>
       </div>
 
       <div className="flex items-center justify-end gap-x-3">

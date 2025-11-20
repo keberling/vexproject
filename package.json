@@ -12,6 +12,10 @@
     "db:studio": "prisma studio",
     "db:seed": "tsx prisma/seed.ts",
     "db:set-admin": "tsx scripts/set-admin.ts",
+    "db:migrate": "prisma migrate dev",
+    "db:migrate:deploy": "prisma migrate deploy",
+    "db:migrate:status": "prisma migrate status",
+    "db:backup": "node scripts/backup-db.js",
     "check-env": "node scripts/check-env.js"
   },
   "dependencies": {

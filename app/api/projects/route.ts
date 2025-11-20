@@ -40,7 +40,18 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { name, address, description, gcContact, cdsContact, franchiseOwnerContact, templateId } = body
+    const { 
+      name, 
+      address, 
+      description, 
+      gcContactName, 
+      gcContactEmail, 
+      cdsContactName, 
+      cdsContactEmail, 
+      franchiseOwnerContactName, 
+      franchiseOwnerContactEmail, 
+      templateId 
+    } = body
 
     if (!name) {
       return NextResponse.json(
@@ -88,9 +99,12 @@ export async function POST(request: NextRequest) {
         name,
         address: address || null,
         description: description || null,
-        gcContact: gcContact || null,
-        cdsContact: cdsContact || null,
-        franchiseOwnerContact: franchiseOwnerContact || null,
+        gcContactName: gcContactName || null,
+        gcContactEmail: gcContactEmail || null,
+        cdsContactName: cdsContactName || null,
+        cdsContactEmail: cdsContactEmail || null,
+        franchiseOwnerContactName: franchiseOwnerContactName || null,
+        franchiseOwnerContactEmail: franchiseOwnerContactEmail || null,
         templateId: templateId || null,
         userId: user.userId,
         milestones: {

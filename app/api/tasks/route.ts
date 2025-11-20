@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { milestoneId, name, description, dueDate, assignedToId } = body
+    const { milestoneId, name, description, dueDate, assignedToId, isImportant } = body
 
     if (!milestoneId || !name) {
       return NextResponse.json(
@@ -51,6 +51,7 @@ export async function POST(request: NextRequest) {
         dueDate: dueDate ? new Date(dueDate) : null,
         milestoneId,
         assignedToId: assignedToId || null,
+        isImportant: isImportant || false,
       },
       include: {
         assignedTo: {

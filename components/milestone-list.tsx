@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { Milestone, ProjectFile, MilestoneComment, Task, TaskComment } from '@prisma/client'
-import { Plus, Trash2, Check, Clock, AlertCircle, Calendar, Pause, Paperclip, MessageSquare, ChevronDown, ChevronUp, Upload, Download, File, X, Phone, Mail, FileText, Image as ImageIcon, Folder, Cloud, User } from 'lucide-react'
+import { Plus, Trash2, Check, Clock, AlertCircle, Calendar, Pause, Paperclip, MessageSquare, ChevronDown, ChevronUp, Upload, Download, File, X, Phone, Mail, FileText, Image as ImageIcon, Folder, Cloud, User, Star } from 'lucide-react'
 import * as Dialog from '@radix-ui/react-dialog'
 import Image from 'next/image'
 import UserAvatar from './user-avatar'
@@ -139,6 +139,7 @@ export default function MilestoneList({ projectId, milestones, onUpdate }: Miles
     name: '',
     description: '',
     category: '',
+    isImportant: false,
     dueDate: '',
   })
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set())
@@ -174,7 +175,7 @@ export default function MilestoneList({ projectId, milestones, onUpdate }: Miles
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set())
   const [taskCommentTexts, setTaskCommentTexts] = useState<Record<string, string>>({})
   const [users, setUsers] = useState<Array<{ id: string; name: string | null; email: string; provider: string | null }>>([])
-  const [taskFormData, setTaskFormData] = useState<Record<string, { name: string; description: string; dueDate: string; assignedToId: string }>>({})
+  const [taskFormData, setTaskFormData] = useState<Record<string, { name: string; description: string; dueDate: string; assignedToId: string; isImportant: boolean }>>({})
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState<Record<string, boolean>>({})
   const [taskFiles, setTaskFiles] = useState<Record<string, Array<{ id: string; name: string; fileName: string; fileUrl: string; fileType: string; fileSize: number; thumbnailUrl: string | null }>>>({})
   const [uploadingTaskFiles, setUploadingTaskFiles] = useState<Record<string, boolean>>({})
@@ -408,7 +409,7 @@ export default function MilestoneList({ projectId, milestones, onUpdate }: Miles
       }
 
       setIsDialogOpen(false)
-      setFormData({ name: '', description: '', category: '', dueDate: '' })
+      setFormData({ name: '', description: '', category: '', isImportant: false, dueDate: '' })
       onUpdate()
     } catch (error) {
       console.error('Error creating milestone:', error)
@@ -559,6 +560,7 @@ export default function MilestoneList({ projectId, milestones, onUpdate }: Miles
           description: formData.description || null,
           dueDate: formData.dueDate || null,
           assignedToId: null, // Don't assign on creation
+          isImportant: formData.isImportant || false,
         }),
       })
 
@@ -572,7 +574,7 @@ export default function MilestoneList({ projectId, milestones, onUpdate }: Miles
         ...prev,
         [milestoneId]: [...(prev[milestoneId] || []), data.task],
       }))
-      setTaskFormData(prev => ({ ...prev, [milestoneId]: { name: '', description: '', dueDate: '', assignedToId: '' } }))
+      setTaskFormData(prev => ({ ...prev, [milestoneId]: { name: '', description: '', dueDate: '', assignedToId: '', isImportant: false } }))
       setIsTaskDialogOpen(prev => ({ ...prev, [milestoneId]: false }))
       // Don't call onUpdate immediately - let the user see the update first
       setTimeout(() => onUpdate(), 100)
@@ -848,6 +850,18 @@ export default function MilestoneList({ projectId, milestones, onUpdate }: Miles
                     className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2"
                   />
                 </div>
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id="milestone-important"
+                    checked={formData.isImportant}
+                    onChange={(e) => setFormData({ ...formData, isImportant: e.target.checked })}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                  <label htmlFor="milestone-important" className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
+                    Mark as Important
+                  </label>
+                </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                     Due Date
@@ -935,6 +949,20 @@ export default function MilestoneList({ projectId, milestones, onUpdate }: Miles
                     }`} />
                     <div className="flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
+                        <button
+                          onClick={() => {
+                            const newImportant = !(milestone as any).isImportant
+                            fetch(`/api/milestones/${milestone.id}`, {
+                              method: 'PATCH',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ isImportant: newImportant }),
+                            }).then(() => onUpdate())
+                          }}
+                          className="p-0.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+                          title={(milestone as any).isImportant ? "Mark as not important" : "Mark as important"}
+                        >
+                          <Star className={`h-4 w-4 ${(milestone as any).isImportant ? 'text-yellow-500 fill-yellow-500' : 'text-gray-400'}`} />
+                        </button>
                         <h3 className="text-sm font-medium text-gray-900 dark:text-white">{milestone.name}</h3>
                         {(milestone as any).category && (
                           <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300">
@@ -1374,7 +1402,7 @@ export default function MilestoneList({ projectId, milestones, onUpdate }: Miles
                                     value={taskFormData[milestone.id]?.name || ''}
                                     onChange={(e) => setTaskFormData(prev => ({
                                       ...prev,
-                                      [milestone.id]: { ...(prev[milestone.id] || { name: '', description: '', dueDate: '', assignedToId: '' }), name: e.target.value }
+                                      [milestone.id]: { ...(prev[milestone.id] || { name: '', description: '', dueDate: '', assignedToId: '', isImportant: false }), name: e.target.value }
                                     }))}
                                     className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2"
                                   />
@@ -1387,7 +1415,7 @@ export default function MilestoneList({ projectId, milestones, onUpdate }: Miles
                                     value={taskFormData[milestone.id]?.description || ''}
                                     onChange={(e) => setTaskFormData(prev => ({
                                       ...prev,
-                                      [milestone.id]: { ...(prev[milestone.id] || { name: '', description: '', dueDate: '', assignedToId: '' }), description: e.target.value }
+                                      [milestone.id]: { ...(prev[milestone.id] || { name: '', description: '', dueDate: '', assignedToId: '', isImportant: false }), description: e.target.value }
                                     }))}
                                     rows={3}
                                     className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2"
@@ -1402,10 +1430,25 @@ export default function MilestoneList({ projectId, milestones, onUpdate }: Miles
                                     value={taskFormData[milestone.id]?.dueDate || ''}
                                     onChange={(e) => setTaskFormData(prev => ({
                                       ...prev,
-                                      [milestone.id]: { ...(prev[milestone.id] || { name: '', description: '', dueDate: '', assignedToId: '' }), dueDate: e.target.value }
+                                      [milestone.id]: { ...(prev[milestone.id] || { name: '', description: '', dueDate: '', assignedToId: '', isImportant: false }), dueDate: e.target.value }
                                     }))}
                                     className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2"
                                   />
+                                </div>
+                                <div className="flex items-center">
+                                  <input
+                                    type="checkbox"
+                                    id={`task-important-${milestone.id}`}
+                                    checked={taskFormData[milestone.id]?.isImportant || false}
+                                    onChange={(e) => setTaskFormData(prev => ({
+                                      ...prev,
+                                      [milestone.id]: { ...(prev[milestone.id] || { name: '', description: '', dueDate: '', assignedToId: '', isImportant: false }), isImportant: e.target.checked }
+                                    }))}
+                                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                  />
+                                  <label htmlFor={`task-important-${milestone.id}`} className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
+                                    Mark as Important
+                                  </label>
                                 </div>
                                 <div className="flex justify-end gap-2">
                                   <Dialog.Close asChild>
@@ -1451,6 +1494,17 @@ export default function MilestoneList({ projectId, milestones, onUpdate }: Miles
                                     }`} />
                                     <div className="flex-1 min-w-0">
                                       <div className="flex items-center gap-2 flex-wrap">
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation()
+                                            const newImportant = !(task as any).isImportant
+                                            handleUpdateTask(task.id, milestone.id, { isImportant: newImportant })
+                                          }}
+                                          className="p-0.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+                                          title={(task as any).isImportant ? "Mark as not important" : "Mark as important"}
+                                        >
+                                          <Star className={`h-3 w-3 ${(task as any).isImportant ? 'text-yellow-500 fill-yellow-500' : 'text-gray-400'}`} />
+                                        </button>
                                         <h5 className="text-xs font-medium text-gray-900 dark:text-white">{task.name}</h5>
                                         <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-xs font-medium ${taskStatusColors[task.status as keyof typeof taskStatusColors] || taskStatusColors.PENDING}`}>
                                           {taskStatusLabels[task.status as keyof typeof taskStatusLabels] || task.status}
