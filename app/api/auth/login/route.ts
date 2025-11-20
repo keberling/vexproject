@@ -25,6 +25,14 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Check if user has a password (email provider)
+    if (!user.password) {
+      return NextResponse.json(
+        { error: 'This account uses Microsoft SSO. Please sign in with Microsoft.' },
+        { status: 401 }
+      )
+    }
+
     const isValidPassword = await bcrypt.compare(password, user.password)
 
     if (!isValidPassword) {

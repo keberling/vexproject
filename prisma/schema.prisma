@@ -13,8 +13,12 @@ datasource db {
 model User {
   id            String    @id @default(cuid())
   email         String    @unique
-  password      String
+  password      String?   // Optional for Microsoft SSO users
   name          String?
+  provider      String?   // 'email' or 'microsoft'
+  microsoftId   String?   // Microsoft/Azure AD user ID
+  accessToken   String?   // Microsoft access token for API calls
+  refreshToken  String?   // Microsoft refresh token
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   projects      Project[]

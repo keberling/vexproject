@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { writeFile, mkdir } from 'fs/promises'
 import { join } from 'path'
 import { existsSync } from 'fs'
+import { createGraphClient, uploadFileToSharePoint } from '@/lib/sharepoint'
 
 export async function GET(request: NextRequest) {
   try {
@@ -107,21 +108,62 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 })
     }
 
-    // TODO: SharePoint integration would go here
-    // For now, save to local filesystem
     const bytes = await file.arrayBuffer()
     const buffer = Buffer.from(bytes)
 
-    const uploadsDir = join(process.cwd(), 'uploads', projectId)
-    if (!existsSync(uploadsDir)) {
-      await mkdir(uploadsDir, { recursive: true })
+    // Get user to check for Microsoft access token
+    const dbUser = await prisma.user.findUnique({
+      where: { id: user.userId },
+      select: { accessToken: true, provider: true },
+    })
+
+    let fileUrl: string
+    let sharepointId: string | null = null
+    let sharepointUrl: string | null = null
+
+    // If user has Microsoft SSO and access token, upload to SharePoint
+    if (dbUser?.provider === 'microsoft' && dbUser.accessToken) {
+      try {
+        const client = createGraphClient(dbUser.accessToken)
+        const fileName = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`
+        
+        const sharepointFile = await uploadFileToSharePoint(
+          client,
+          buffer,
+          fileName,
+          project.name,
+          process.env.SHAREPOINT_SITE_ID,
+          process.env.SHAREPOINT_DRIVE_ID
+        )
+
+        sharepointId = sharepointFile.id
+        sharepointUrl = sharepointFile.webUrl
+        fileUrl = sharepointFile.downloadUrl
+      } catch (error) {
+        console.error('SharePoint upload failed, falling back to local storage:', error)
+        // Fall back to local storage if SharePoint fails
+        const uploadsDir = join(process.cwd(), 'uploads', projectId)
+        if (!existsSync(uploadsDir)) {
+          await mkdir(uploadsDir, { recursive: true })
+        }
+
+        const fileName = `${Date.now()}-${file.name}`
+        const filePath = join(uploadsDir, fileName)
+        await writeFile(filePath, buffer)
+        fileUrl = `/uploads/${projectId}/${fileName}`
+      }
+    } else {
+      // No Microsoft SSO, use local filesystem
+      const uploadsDir = join(process.cwd(), 'uploads', projectId)
+      if (!existsSync(uploadsDir)) {
+        await mkdir(uploadsDir, { recursive: true })
+      }
+
+      const fileName = `${Date.now()}-${file.name}`
+      const filePath = join(uploadsDir, fileName)
+      await writeFile(filePath, buffer)
+      fileUrl = `/uploads/${projectId}/${fileName}`
     }
-
-    const fileName = `${Date.now()}-${file.name}`
-    const filePath = join(uploadsDir, fileName)
-    await writeFile(filePath, buffer)
-
-    const fileUrl = `/uploads/${projectId}/${fileName}`
 
     // If milestoneId is provided, verify it belongs to the project
     if (milestoneId) {
@@ -143,15 +185,14 @@ export async function POST(request: NextRequest) {
     const projectFile = await prisma.projectFile.create({
       data: {
         name: file.name,
-        fileName,
+        fileName: file.name,
         fileUrl,
         fileType: file.type,
         fileSize: file.size,
         projectId,
         milestoneId: milestoneId || null,
-        // SharePoint fields would be set here when integration is enabled
-        // sharepointId: sharepointFile.id,
-        // sharepointUrl: sharepointFile.webUrl,
+        sharepointId: sharepointId,
+        sharepointUrl: sharepointUrl,
       },
     })
 
