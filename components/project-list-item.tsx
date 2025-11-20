@@ -123,7 +123,14 @@ export default function ProjectListItem({ project }: ProjectListItemProps) {
               {project.address && (
                 <div className="flex items-center gap-1">
                   <MapPin className="h-4 w-4" />
-                  <span>{project.address}</span>
+                  <a
+                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(project.address)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 underline"
+                  >
+                    {project.address}
+                  </a>
                 </div>
               )}
               {project.milestones.length > 0 && (

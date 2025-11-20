@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Milestone, ProjectFile, MilestoneComment, Task, TaskComment } from '@prisma/client'
 import { Plus, Trash2, Check, Clock, AlertCircle, Calendar, Pause, Paperclip, MessageSquare, ChevronDown, ChevronUp, Upload, Download, File, X, Phone, Mail, FileText, Image as ImageIcon, Folder, Cloud, User, Star, Edit } from 'lucide-react'
+import { createConfetti } from '@/lib/confetti'
 import * as Dialog from '@radix-ui/react-dialog'
 import Image from 'next/image'
 import UserAvatar from './user-avatar'
@@ -538,7 +539,12 @@ export default function MilestoneList({ projectId, milestones, onUpdate }: Miles
     }
   }
 
-  const handleStatusChange = async (milestoneId: string, newStatus: string) => {
+  const handleStatusChange = async (milestoneId: string, newStatus: string, event?: React.MouseEvent<HTMLButtonElement>) => {
+    // Trigger confetti if marking as completed
+    if (newStatus === 'COMPLETED' && event?.currentTarget) {
+      createConfetti(event.currentTarget)
+    }
+
     try {
       const response = await fetch(`/api/milestones/${milestoneId}`, {
         method: 'PATCH',
@@ -785,7 +791,12 @@ export default function MilestoneList({ projectId, milestones, onUpdate }: Miles
     })
   }, [expandedTasks])
 
-  const handleUpdateTask = async (taskId: string, milestoneId: string, updates: any) => {
+  const handleUpdateTask = async (taskId: string, milestoneId: string, updates: any, event?: React.ChangeEvent<HTMLSelectElement>) => {
+    // Trigger confetti if marking as completed
+    if (updates.status === 'COMPLETED' && event?.currentTarget) {
+      createConfetti(event.currentTarget)
+    }
+
     try {
       const response = await fetch(`/api/tasks/${taskId}`, {
         method: 'PATCH',
@@ -1112,10 +1123,14 @@ export default function MilestoneList({ projectId, milestones, onUpdate }: Miles
                         )
                       } else {
                         // Show single color based on milestone status
+                        const progress = calculateMilestoneProgress(milestone)
+                        const statusColor = milestone.status === 'COMPLETED' 
+                          ? 'bg-green-600' // Different green for milestone completion (darker than task green)
+                          : 'bg-blue-600'
                         return (
                           <div 
-                            className="h-full bg-blue-600 transition-all duration-300"
-                            style={{ width: `${calculateMilestoneProgress(milestone)}%` }}
+                            className={`h-full ${statusColor} transition-all duration-300`}
+                            style={{ width: `${progress}%` }}
                           />
                         )
                       }
@@ -1228,7 +1243,7 @@ export default function MilestoneList({ projectId, milestones, onUpdate }: Miles
                         return (
                           <button
                             key={status}
-                            onClick={() => handleStatusChange(milestone.id, status)}
+                            onClick={(e) => handleStatusChange(milestone.id, status, e)}
                             className={`
                               inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md transition-colors
                               ${isActive 
@@ -1907,7 +1922,7 @@ export default function MilestoneList({ projectId, milestones, onUpdate }: Miles
                                   <div className="flex items-center gap-1">
                                     <select
                                       value={task.status}
-                                      onChange={(e) => handleUpdateTask(task.id, milestone.id, { status: e.target.value })}
+                                      onChange={(e) => handleUpdateTask(task.id, milestone.id, { status: e.target.value }, e)}
                                       className="text-xs rounded border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                                     >
                                       {Object.entries(taskStatusLabels).map(([status, label]) => (

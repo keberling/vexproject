@@ -5,6 +5,7 @@ import { Task, TaskComment } from '@prisma/client'
 import { Check, Clock, Pause, Calendar, MessageSquare, ChevronDown, ChevronUp, Trash2, Filter } from 'lucide-react'
 import Link from 'next/link'
 import UserAvatar from './user-avatar'
+import { createConfetti } from '@/lib/confetti'
 
 interface MyTasksListProps {
   initialTasks: (Task & {
@@ -84,7 +85,12 @@ export default function MyTasksList({ initialTasks }: MyTasksListProps) {
     }
   }
 
-  const handleUpdateTask = async (taskId: string, updates: any) => {
+  const handleUpdateTask = async (taskId: string, updates: any, event?: React.ChangeEvent<HTMLSelectElement>) => {
+    // Trigger confetti if marking as completed
+    if (updates.status === 'COMPLETED' && event?.currentTarget) {
+      createConfetti(event.currentTarget)
+    }
+
     try {
       const response = await fetch(`/api/tasks/${taskId}`, {
         method: 'PATCH',
@@ -373,7 +379,7 @@ export default function MyTasksList({ initialTasks }: MyTasksListProps) {
                     <div className="flex items-center gap-2 flex-shrink-0">
                       <select
                         value={task.status}
-                        onChange={(e) => handleUpdateTask(task.id, { status: e.target.value })}
+                        onChange={(e) => handleUpdateTask(task.id, { status: e.target.value }, e)}
                         className="text-xs rounded border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                       >
                         {Object.entries(taskStatusLabels).map(([status, label]) => (

@@ -178,7 +178,15 @@ export default function ProjectCard({ project }: ProjectCardProps) {
         <Link href={`/dashboard/projects/${project.id}`}>
           {project.address && (
             <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
-              {project.address}
+              <a
+                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(project.address)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 underline"
+              >
+                {project.address}
+              </a>
             </p>
           )}
         </Link>
@@ -258,7 +266,11 @@ export default function ProjectCard({ project }: ProjectCardProps) {
                           ) : (
                             // Show single color based on milestone status
                             <div 
-                              className="bg-blue-600 h-1.5 rounded-full transition-all"
+                              className={`h-1.5 rounded-full transition-all ${
+                                milestone.status === 'COMPLETED' 
+                                  ? 'bg-green-600' // Different green for milestone completion (darker than task green)
+                                  : 'bg-blue-600'
+                              }`}
                               style={{ width: `${taskProgress}%` }}
                             />
                           )}

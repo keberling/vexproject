@@ -174,25 +174,93 @@ export default function ProjectDetail({ project: initialProject }: ProjectDetail
                 <div className="flex flex-col gap-2 text-sm text-gray-600 dark:text-gray-400">
                   {(project as any).address && (
                     <span>
-                      <span className="font-medium">Address:</span> {(project as any).address}
+                      <span className="font-medium">Address:</span>{' '}
+                      <a
+                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((project as any).address)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 underline"
+                      >
+                        {(project as any).address}
+                      </a>
                     </span>
                   )}
                   {((project as any).gcContactName || (project as any).gcContactEmail) && (
                     <span>
                       <span className="font-medium">GC Contact:</span>{' '}
-                      {[((project as any).gcContactName || ''), ((project as any).gcContactEmail || '')].filter(Boolean).join(' - ')}
+                      {(() => {
+                        const name = (project as any).gcContactName || ''
+                        const email = (project as any).gcContactEmail || ''
+                        const parts = [name, email].filter(Boolean)
+                        return parts.map((part, idx) => {
+                          if (part === email && email.includes('@')) {
+                            return (
+                              <span key={idx}>
+                                {idx > 0 && ' - '}
+                                <a
+                                  href={`mailto:${email}`}
+                                  className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 underline"
+                                >
+                                  {email}
+                                </a>
+                              </span>
+                            )
+                          }
+                          return <span key={idx}>{idx > 0 && ' - '}{part}</span>
+                        })
+                      })()}
                     </span>
                   )}
                   {((project as any).cdsContactName || (project as any).cdsContactEmail) && (
                     <span>
                       <span className="font-medium">CDS Contact:</span>{' '}
-                      {[((project as any).cdsContactName || ''), ((project as any).cdsContactEmail || '')].filter(Boolean).join(' - ')}
+                      {(() => {
+                        const name = (project as any).cdsContactName || ''
+                        const email = (project as any).cdsContactEmail || ''
+                        const parts = [name, email].filter(Boolean)
+                        return parts.map((part, idx) => {
+                          if (part === email && email.includes('@')) {
+                            return (
+                              <span key={idx}>
+                                {idx > 0 && ' - '}
+                                <a
+                                  href={`mailto:${email}`}
+                                  className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 underline"
+                                >
+                                  {email}
+                                </a>
+                              </span>
+                            )
+                          }
+                          return <span key={idx}>{idx > 0 && ' - '}{part}</span>
+                        })
+                      })()}
                     </span>
                   )}
                   {((project as any).franchiseOwnerContactName || (project as any).franchiseOwnerContactEmail) && (
                     <span>
                       <span className="font-medium">Franchise Owner Contact:</span>{' '}
-                      {[((project as any).franchiseOwnerContactName || ''), ((project as any).franchiseOwnerContactEmail || '')].filter(Boolean).join(' - ')}
+                      {(() => {
+                        const name = (project as any).franchiseOwnerContactName || ''
+                        const email = (project as any).franchiseOwnerContactEmail || ''
+                        const parts = [name, email].filter(Boolean)
+                        return parts.map((part, idx) => {
+                          if (part === email && email.includes('@')) {
+                            return (
+                              <span key={idx}>
+                                {idx > 0 && ' - '}
+                                <a
+                                  href={`mailto:${email}`}
+                                  className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 underline"
+                                >
+                                  {email}
+                                </a>
+                              </span>
+                            )
+                          }
+                          return <span key={idx}>{idx > 0 && ' - '}{part}</span>
+                        })
+                      })()}
                     </span>
                   )}
                   <span>
