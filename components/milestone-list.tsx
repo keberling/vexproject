@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { Milestone, ProjectFile, MilestoneComment } from '@prisma/client'
-import { Plus, Trash2, Check, Clock, AlertCircle, Calendar, Pause, Paperclip, MessageSquare, ChevronDown, ChevronUp, Upload, Download, File, X, Phone, Mail, FileText, Image as ImageIcon, Folder, Cloud } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { Milestone, ProjectFile, MilestoneComment, Task, TaskComment } from '@prisma/client'
+import { Plus, Trash2, Check, Clock, AlertCircle, Calendar, Pause, Paperclip, MessageSquare, ChevronDown, ChevronUp, Upload, Download, File, X, Phone, Mail, FileText, Image as ImageIcon, Folder, Cloud, User } from 'lucide-react'
 import * as Dialog from '@radix-ui/react-dialog'
 import Image from 'next/image'
+import UserAvatar from './user-avatar'
 
 interface MilestoneListProps {
   projectId: string
@@ -15,6 +16,22 @@ interface MilestoneListProps {
         name: string | null
         email: string
       }
+    })[]
+    tasks?: (Task & {
+      assignedTo: {
+        id: string
+        name: string | null
+        email: string
+        provider: string | null
+      } | null
+      comments: (TaskComment & {
+        user: {
+          id: string
+          name: string | null
+          email: string
+          provider: string | null
+        }
+      })[]
     })[]
   })[]
   onUpdate: () => void
@@ -71,6 +88,27 @@ const statusLabels = {
   ON_HOLD: 'On Hold',
 }
 
+const taskStatusIcons = {
+  PENDING: Clock,
+  IN_PROGRESS: Clock,
+  COMPLETED: Check,
+  ON_HOLD: Pause,
+}
+
+const taskStatusColors = {
+  PENDING: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300',
+  IN_PROGRESS: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
+  COMPLETED: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
+  ON_HOLD: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300',
+}
+
+const taskStatusLabels = {
+  PENDING: 'Pending',
+  IN_PROGRESS: 'In Progress',
+  COMPLETED: 'Completed',
+  ON_HOLD: 'On Hold',
+}
+
 export default function MilestoneList({ projectId, milestones, onUpdate }: MilestoneListProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [expandedMilestones, setExpandedMilestones] = useState<Set<string>>(new Set())
@@ -103,6 +141,44 @@ export default function MilestoneList({ projectId, milestones, onUpdate }: Miles
     dueDate: '',
   })
   const [commentTexts, setCommentTexts] = useState<Record<string, string>>({})
+  const [tasks, setTasks] = useState<Record<string, (Task & {
+    assignedTo: {
+      id: string
+      name: string | null
+      email: string
+      provider: string | null
+    } | null
+    comments: (TaskComment & {
+      user: {
+        id: string
+        name: string | null
+        email: string
+        provider: string | null
+      }
+    })[]
+  })[]>>({})
+  const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set())
+  const [taskCommentTexts, setTaskCommentTexts] = useState<Record<string, string>>({})
+  const [users, setUsers] = useState<Array<{ id: string; name: string | null; email: string; provider: string | null }>>([])
+  const [taskFormData, setTaskFormData] = useState<Record<string, { name: string; description: string; dueDate: string; assignedToId: string }>>({})
+  const [isTaskDialogOpen, setIsTaskDialogOpen] = useState<Record<string, boolean>>({})
+  const localTaskUpdates = useRef<Set<string>>(new Set()) // Track milestones with local task updates
+
+  // Fetch users for assignment
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const response = await fetch('/api/users')
+        if (response.ok) {
+          const data = await response.json()
+          setUsers(data.users || [])
+        }
+      } catch (error) {
+        console.error('Error fetching users:', error)
+      }
+    }
+    fetchUsers()
+  }, [])
 
   // Pre-load comments and communications for all milestones on mount
   useEffect(() => {
@@ -130,9 +206,9 @@ export default function MilestoneList({ projectId, milestones, onUpdate }: Miles
 
       // Use pre-loaded comments from props if available, otherwise fetch
       for (const milestone of milestones) {
-        const milestoneWithComments = milestone as any
-        if (milestoneWithComments.comments && Array.isArray(milestoneWithComments.comments)) {
-          commentsMap[milestone.id] = milestoneWithComments.comments
+        const milestoneWithData = milestone as any
+        if (milestoneWithData.comments && Array.isArray(milestoneWithData.comments)) {
+          commentsMap[milestone.id] = milestoneWithData.comments
         } else {
           try {
             const commentsResponse = await fetch(`/api/milestones/${milestone.id}/comments`)
@@ -172,6 +248,90 @@ export default function MilestoneList({ projectId, milestones, onUpdate }: Miles
 
     loadAllMilestoneData()
   }, [milestones, projectId])
+
+  // Sync tasks from props - but don't overwrite if we have recent local updates
+  useEffect(() => {
+    const newTasksMap: Record<string, (Task & {
+      assignedTo: {
+        id: string
+        name: string | null
+        email: string
+        provider: string | null
+      } | null
+      comments: (TaskComment & {
+        user: {
+          id: string
+          name: string | null
+          email: string
+          provider: string | null
+        }
+      })[]
+    })[]> = {}
+
+    for (const milestone of milestones) {
+      const milestoneWithData = milestone as any
+      
+      // If we have local updates for this milestone, merge carefully instead of overwriting
+      if (localTaskUpdates.current.has(milestone.id)) {
+        // Keep local state, but merge in any new tasks from props
+        const currentTasks = tasks[milestone.id] || []
+        const propTasks = milestoneWithData.tasks && Array.isArray(milestoneWithData.tasks) 
+          ? milestoneWithData.tasks 
+          : []
+        
+        // Create a map of current tasks by ID
+        const taskMap = new Map(currentTasks.map(t => [t.id, t]))
+        
+        // Update existing tasks with prop data (for status, etc.) but keep local structure
+        propTasks.forEach((propTask: any) => {
+          const existing = taskMap.get(propTask.id)
+          if (existing) {
+            // Merge prop data into existing task
+            taskMap.set(propTask.id, { ...existing, ...propTask })
+          } else {
+            // New task from props
+            taskMap.set(propTask.id, propTask)
+          }
+        })
+        
+        newTasksMap[milestone.id] = Array.from(taskMap.values())
+        
+        // Check if our local updates are now reflected in props
+        const currentTaskIds = new Set(currentTasks.map(t => t.id))
+        const propTaskIds = new Set(propTasks.map((t: any) => t.id))
+        const allLocalTasksInProps = Array.from(currentTaskIds).every(id => propTaskIds.has(id))
+        
+        // Only clear flag if props have caught up with our changes
+        if (allLocalTasksInProps && currentTaskIds.size === propTaskIds.size) {
+          localTaskUpdates.current.delete(milestone.id)
+        }
+      } else if (milestoneWithData.tasks && Array.isArray(milestoneWithData.tasks)) {
+        // No local updates, use props directly
+        newTasksMap[milestone.id] = milestoneWithData.tasks
+      } else {
+        // Keep existing tasks if no tasks in props
+        newTasksMap[milestone.id] = tasks[milestone.id] || []
+      }
+    }
+
+    // Only update if there are actual changes
+    const hasChanges = Object.keys(newTasksMap).some(milestoneId => {
+      const newTasks = newTasksMap[milestoneId] || []
+      const currentTasks = tasks[milestoneId] || []
+      if (newTasks.length !== currentTasks.length) return true
+      const currentTaskIds = new Set(currentTasks.map(t => t.id))
+      const newTaskIds = new Set(newTasks.map(t => t.id))
+      if (currentTaskIds.size !== newTaskIds.size) return true
+      return newTasks.some(newTask => {
+        const currentTask = currentTasks.find(t => t.id === newTask.id)
+        return !currentTask || JSON.stringify(currentTask) !== JSON.stringify(newTask)
+      })
+    })
+
+    if (hasChanges || Object.keys(tasks).length === 0) {
+      setTasks(newTasksMap)
+    }
+  }, [milestones])
 
   // Fetch files for expanded milestones
   useEffect(() => {
@@ -357,6 +517,143 @@ export default function MilestoneList({ projectId, milestones, onUpdate }: Miles
     const sizes = ['Bytes', 'KB', 'MB', 'GB']
     const i = Math.floor(Math.log(bytes) / Math.log(k))
     return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i]
+  }
+
+  const handleCreateTask = async (milestoneId: string) => {
+    const formData = taskFormData[milestoneId]
+    if (!formData || !formData.name.trim()) return
+
+    setLoading(true)
+    try {
+      const response = await fetch('/api/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          milestoneId,
+          name: formData.name,
+          description: formData.description || null,
+          dueDate: formData.dueDate || null,
+          assignedToId: formData.assignedToId || null,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to create task')
+      }
+
+      const data = await response.json()
+      localTaskUpdates.current.add(milestoneId)
+      setTasks(prev => ({
+        ...prev,
+        [milestoneId]: [...(prev[milestoneId] || []), data.task],
+      }))
+      setTaskFormData(prev => ({ ...prev, [milestoneId]: { name: '', description: '', dueDate: '', assignedToId: '' } }))
+      setIsTaskDialogOpen(prev => ({ ...prev, [milestoneId]: false }))
+      // Don't call onUpdate immediately - let the user see the update first
+      setTimeout(() => onUpdate(), 100)
+    } catch (error) {
+      console.error('Error creating task:', error)
+      alert('Failed to create task')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleUpdateTask = async (taskId: string, milestoneId: string, updates: any) => {
+    try {
+      const response = await fetch(`/api/tasks/${taskId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to update task')
+      }
+
+      const data = await response.json()
+      localTaskUpdates.current.add(milestoneId)
+      setTasks(prev => ({
+        ...prev,
+        [milestoneId]: (prev[milestoneId] || []).map(t => t.id === taskId ? data.task : t),
+      }))
+      // Don't call onUpdate immediately - let the user see the update first
+      setTimeout(() => onUpdate(), 100)
+    } catch (error) {
+      console.error('Error updating task:', error)
+      alert('Failed to update task')
+    }
+  }
+
+  const handleDeleteTask = async (taskId: string, milestoneId: string) => {
+    if (!confirm('Are you sure you want to delete this task?')) {
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/tasks/${taskId}`, {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to delete task')
+      }
+
+      localTaskUpdates.current.add(milestoneId)
+      setTasks(prev => ({
+        ...prev,
+        [milestoneId]: (prev[milestoneId] || []).filter(t => t.id !== taskId),
+      }))
+      // Don't call onUpdate immediately - let the user see the update first
+      setTimeout(() => onUpdate(), 100)
+    } catch (error) {
+      console.error('Error deleting task:', error)
+      alert('Failed to delete task')
+    }
+  }
+
+  const handleAddTaskComment = async (taskId: string, milestoneId: string, content?: string) => {
+    const commentContent = content || taskCommentTexts[taskId]?.trim()
+    if (!commentContent) return
+
+    try {
+      const response = await fetch(`/api/tasks/${taskId}/comments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: commentContent }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to add comment')
+      }
+
+      const data = await response.json()
+      localTaskUpdates.current.add(milestoneId)
+      setTasks(prev => ({
+        ...prev,
+        [milestoneId]: (prev[milestoneId] || []).map(t =>
+          t.id === taskId
+            ? { ...t, comments: [data.comment, ...t.comments] }
+            : t
+        ),
+      }))
+      setTaskCommentTexts(prev => ({ ...prev, [taskId]: '' }))
+      // Don't call onUpdate immediately - let the user see the update first
+      setTimeout(() => onUpdate(), 100)
+    } catch (error) {
+      console.error('Error adding task comment:', error)
+      alert('Failed to add comment')
+    }
+  }
+
+  const toggleTask = (taskId: string) => {
+    const newExpanded = new Set(expandedTasks)
+    if (newExpanded.has(taskId)) {
+      newExpanded.delete(taskId)
+    } else {
+      newExpanded.add(taskId)
+    }
+    setExpandedTasks(newExpanded)
   }
 
   return (
@@ -856,6 +1153,236 @@ export default function MilestoneList({ projectId, milestones, onUpdate }: Miles
                             Note
                           </button>
                         </div>
+                      </div>
+                    </div>
+
+                    {/* Tasks Section */}
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="text-sm font-medium text-gray-900 dark:text-white flex items-center gap-2">
+                          <Check className="h-4 w-4" />
+                          Tasks ({(tasks[milestone.id] || []).length})
+                        </h4>
+                        <Dialog.Root open={isTaskDialogOpen[milestone.id] || false} onOpenChange={(open) => setIsTaskDialogOpen(prev => ({ ...prev, [milestone.id]: open }))}>
+                          <Dialog.Trigger asChild>
+                            <button className="inline-flex items-center text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
+                              <Plus className="h-3 w-3 mr-1" />
+                              Add Task
+                            </button>
+                          </Dialog.Trigger>
+                          <Dialog.Portal>
+                            <Dialog.Overlay className="fixed inset-0 bg-black/50" />
+                            <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 w-full max-w-md">
+                              <Dialog.Title className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                                New Task
+                              </Dialog.Title>
+                              <form onSubmit={(e) => { e.preventDefault(); handleCreateTask(milestone.id) }} className="space-y-4">
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    Name *
+                                  </label>
+                                  <input
+                                    type="text"
+                                    required
+                                    value={taskFormData[milestone.id]?.name || ''}
+                                    onChange={(e) => setTaskFormData(prev => ({
+                                      ...prev,
+                                      [milestone.id]: { ...(prev[milestone.id] || { name: '', description: '', dueDate: '', assignedToId: '' }), name: e.target.value }
+                                    }))}
+                                    className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    Description
+                                  </label>
+                                  <textarea
+                                    value={taskFormData[milestone.id]?.description || ''}
+                                    onChange={(e) => setTaskFormData(prev => ({
+                                      ...prev,
+                                      [milestone.id]: { ...(prev[milestone.id] || { name: '', description: '', dueDate: '', assignedToId: '' }), description: e.target.value }
+                                    }))}
+                                    rows={3}
+                                    className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    Assign To
+                                  </label>
+                                  <select
+                                    value={taskFormData[milestone.id]?.assignedToId || ''}
+                                    onChange={(e) => setTaskFormData(prev => ({
+                                      ...prev,
+                                      [milestone.id]: { ...(prev[milestone.id] || { name: '', description: '', dueDate: '', assignedToId: '' }), assignedToId: e.target.value }
+                                    }))}
+                                    className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2"
+                                  >
+                                    <option value="">Unassigned</option>
+                                    {users.map((user) => (
+                                      <option key={user.id} value={user.id}>
+                                        {user.name || user.email}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    Due Date
+                                  </label>
+                                  <input
+                                    type="date"
+                                    value={taskFormData[milestone.id]?.dueDate || ''}
+                                    onChange={(e) => setTaskFormData(prev => ({
+                                      ...prev,
+                                      [milestone.id]: { ...(prev[milestone.id] || { name: '', description: '', dueDate: '', assignedToId: '' }), dueDate: e.target.value }
+                                    }))}
+                                    className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2"
+                                  />
+                                </div>
+                                <div className="flex justify-end gap-2">
+                                  <Dialog.Close asChild>
+                                    <button
+                                      type="button"
+                                      className="rounded-md bg-gray-200 dark:bg-gray-700 px-3 py-2 text-sm font-semibold text-gray-900 dark:text-white"
+                                    >
+                                      Cancel
+                                    </button>
+                                  </Dialog.Close>
+                                  <button
+                                    type="submit"
+                                    disabled={loading}
+                                    className="rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-500 disabled:opacity-50"
+                                  >
+                                    {loading ? 'Creating...' : 'Create'}
+                                  </button>
+                                </div>
+                              </form>
+                            </Dialog.Content>
+                          </Dialog.Portal>
+                        </Dialog.Root>
+                      </div>
+                      <div className="space-y-2">
+                        {(tasks[milestone.id] || []).length === 0 ? (
+                          <p className="text-xs text-gray-500 dark:text-gray-400">No tasks yet</p>
+                        ) : (
+                          (tasks[milestone.id] || []).map((task) => {
+                            const TaskStatusIcon = taskStatusIcons[task.status as keyof typeof taskStatusIcons] || Clock
+                            const isTaskExpanded = expandedTasks.has(task.id)
+                            return (
+                              <div
+                                key={task.id}
+                                className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden bg-white dark:bg-gray-800"
+                              >
+                                <div className="flex items-center justify-between p-2">
+                                  <div className="flex items-center gap-2 flex-1">
+                                    <TaskStatusIcon className={`h-4 w-4 ${
+                                      task.status === 'COMPLETED' ? 'text-green-600' :
+                                      task.status === 'IN_PROGRESS' ? 'text-blue-600' :
+                                      task.status === 'ON_HOLD' ? 'text-orange-600' :
+                                      'text-gray-400'
+                                    }`} />
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-2 flex-wrap">
+                                        <h5 className="text-xs font-medium text-gray-900 dark:text-white">{task.name}</h5>
+                                        <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-xs font-medium ${taskStatusColors[task.status as keyof typeof taskStatusColors] || taskStatusColors.PENDING}`}>
+                                          {taskStatusLabels[task.status as keyof typeof taskStatusLabels] || task.status}
+                                        </span>
+                                        {task.assignedTo && (
+                                          <div className="flex items-center gap-1">
+                                            <UserAvatar
+                                              userId={task.assignedTo.id}
+                                              userName={task.assignedTo.name}
+                                              userEmail={task.assignedTo.email}
+                                              provider={task.assignedTo.provider}
+                                              size={16}
+                                            />
+                                            <span className="text-xs text-gray-500 dark:text-gray-400">
+                                              {task.assignedTo.name || task.assignedTo.email}
+                                            </span>
+                                          </div>
+                                        )}
+                                        {task.comments.length > 0 && (
+                                          <span className="inline-flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+                                            <MessageSquare className="h-3 w-3" />
+                                            {task.comments.length}
+                                          </span>
+                                        )}
+                                      </div>
+                                      {task.description && (
+                                        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{task.description}</p>
+                                      )}
+                                      {task.dueDate && (
+                                        <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+                                          Due: {new Date(task.dueDate).toLocaleDateString()}
+                                        </p>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-1">
+                                    <select
+                                      value={task.status}
+                                      onChange={(e) => handleUpdateTask(task.id, milestone.id, { status: e.target.value })}
+                                      className="text-xs rounded border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                    >
+                                      {Object.entries(taskStatusLabels).map(([status, label]) => (
+                                        <option key={status} value={status}>{label}</option>
+                                      ))}
+                                    </select>
+                                    <button
+                                      onClick={() => toggleTask(task.id)}
+                                      className="text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
+                                    >
+                                      {isTaskExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeleteTask(task.id, milestone.id)}
+                                      className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
+                                    >
+                                      <Trash2 className="h-3 w-3" />
+                                    </button>
+                                  </div>
+                                </div>
+                                {isTaskExpanded && (
+                                  <div className="border-t border-gray-200 dark:border-gray-700 p-2 space-y-2 bg-gray-50 dark:bg-gray-900">
+                                    <div>
+                                      <h6 className="text-xs font-medium text-gray-900 dark:text-white mb-1">Comments</h6>
+                                      <div className="space-y-1 mb-2">
+                                        {task.comments.map((comment) => (
+                                          <div
+                                            key={comment.id}
+                                            className="p-1.5 bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700"
+                                          >
+                                            <p className="text-xs text-gray-900 dark:text-white whitespace-pre-wrap">{comment.content}</p>
+                                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                                              {comment.user.name || comment.user.email} • {new Date(comment.createdAt).toLocaleString()}
+                                            </p>
+                                          </div>
+                                        ))}
+                                      </div>
+                                      <div className="flex gap-1">
+                                        <textarea
+                                          value={taskCommentTexts[task.id] || ''}
+                                          onChange={(e) => setTaskCommentTexts(prev => ({ ...prev, [task.id]: e.target.value }))}
+                                          placeholder="Add a comment..."
+                                          rows={2}
+                                          className="flex-1 text-xs rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-2 py-1"
+                                        />
+                                        <button
+                                          onClick={() => handleAddTaskComment(task.id, milestone.id)}
+                                          disabled={!taskCommentTexts[task.id]?.trim()}
+                                          className="px-2 py-1 text-xs font-medium text-white bg-blue-600 rounded-md hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                          Add
+                                        </button>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )
+                          })
+                        )}
                       </div>
                     </div>
                   </div>

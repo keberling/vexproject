@@ -28,6 +28,8 @@ model User {
   communications Communication[]
   statusChanges StatusChange[]
   backupSchedules BackupSchedule[]
+  assignedTasks Task[]
+  taskComments TaskComment[]
 }
 
 model Project {
@@ -74,6 +76,7 @@ model Milestone {
   comments      MilestoneComment[]
   communications Communication[]
   statusChanges StatusChange[]
+  tasks         Task[]
 }
 
 // MilestoneStatus enum values (stored as strings in SQLite):
@@ -188,5 +191,35 @@ model BackupSchedule {
   updatedAt     DateTime  @updatedAt
   createdBy     String
   creator       User      @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+}
+
+model Task {
+  id            String    @id @default(cuid())
+  name          String
+  description   String?
+  status        String          @default("PENDING")
+  dueDate       DateTime?
+  completedDate DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  milestoneId   String
+  milestone     Milestone @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
+  assignedToId  String?
+  assignedTo    User?     @relation(fields: [assignedToId], references: [id], onDelete: SetNull)
+  comments      TaskComment[]
+}
+
+// TaskStatus enum values (stored as strings in SQLite):
+// PENDING, IN_PROGRESS, COMPLETED, ON_HOLD
+
+model TaskComment {
+  id            String    @id @default(cuid())
+  content       String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  taskId        String
+  task          Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 

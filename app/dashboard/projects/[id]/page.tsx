@@ -38,6 +38,32 @@ export default async function ProjectDetailPage({
             },
             orderBy: { createdAt: 'desc' },
           },
+          tasks: {
+            orderBy: { createdAt: 'asc' },
+            include: {
+              assignedTo: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true,
+                  provider: true,
+                },
+              },
+              comments: {
+                include: {
+                  user: {
+                    select: {
+                      id: true,
+                      name: true,
+                      email: true,
+                      provider: true,
+                    },
+                  },
+                },
+                orderBy: { createdAt: 'desc' },
+              },
+            },
+          },
         },
       },
       files: {
