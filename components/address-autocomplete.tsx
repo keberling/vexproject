@@ -36,56 +36,10 @@ export default function AddressAutocomplete({
   const inputRef = useRef<HTMLInputElement>(null)
   const suggestionsRef = useRef<HTMLDivElement>(null)
   const debounceRef = useRef<NodeJS.Timeout>()
-  const autocompleteServiceRef = useRef<any>(null)
-  const placesServiceRef = useRef<any>(null)
 
-  // Initialize Google Places Autocomplete service
-  useEffect(() => {
-    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
-    if (!apiKey) {
-      console.warn('Google Maps API key not found. Address autocomplete will use REST API fallback.')
-      return
-    }
+  // No need to load Google Maps script - we use server-side proxy API
 
-    // Load Google Maps script if not already loaded
-    if (!window.google || !window.google.maps) {
-      const script = document.createElement('script')
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`
-      script.async = true
-      script.defer = true
-      script.onload = () => {
-        if (window.google && window.google.maps && window.google.maps.places) {
-          try {
-            autocompleteServiceRef.current = new window.google.maps.places.AutocompleteService()
-            placesServiceRef.current = new window.google.maps.places.PlacesService(
-              document.createElement('div')
-            )
-            console.log('Google Places Autocomplete service initialized')
-          } catch (error) {
-            console.error('Error initializing Google Places service:', error)
-          }
-        } else {
-          console.warn('Google Maps Places library not available')
-        }
-      }
-      script.onerror = () => {
-        console.error('Failed to load Google Maps script. Check your API key and network connection.')
-      }
-      document.head.appendChild(script)
-    } else {
-      try {
-        autocompleteServiceRef.current = new window.google.maps.places.AutocompleteService()
-        placesServiceRef.current = new window.google.maps.places.PlacesService(
-          document.createElement('div')
-        )
-        console.log('Google Places Autocomplete service initialized (already loaded)')
-      } catch (error) {
-        console.error('Error initializing Google Places service:', error)
-      }
-    }
-  }, [])
-
-  // Fetch address suggestions from Google Places Autocomplete API
+  // Fetch address suggestions via server-side proxy (avoids CORS)
   const fetchSuggestions = async (query: string) => {
     console.log('🔍 fetchSuggestions called with query:', query)
     
@@ -96,24 +50,13 @@ export default function AddressAutocomplete({
       return
     }
 
-    // Get API key - Next.js embeds NEXT_PUBLIC_ vars at build time
-    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
-    console.log('🔑 API Key check:', apiKey ? `✅ Found (${apiKey.substring(0, 15)}...)` : '❌ NOT FOUND')
-    
-    if (!apiKey) {
-      console.error('❌ Google Maps API key not configured. Add NEXT_PUBLIC_GOOGLE_MAPS_API_KEY to your .env.local file and restart the dev server.')
-      setSuggestions([])
-      setShowSuggestions(false)
-      return
-    }
-
     setIsLoading(true)
-    console.log('⏳ Starting API request...')
+    console.log('⏳ Starting API request via proxy...')
     
     try {
-      // Always use REST API (more reliable)
-      const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(query)}&types=address&components=country:us&key=${apiKey}`
-      console.log('🌐 Fetching from Google Places API...')
+      // Use our server-side proxy API to avoid CORS issues
+      const url = `/api/places/autocomplete?input=${encodeURIComponent(query)}`
+      console.log('🌐 Fetching from proxy API:', url)
       
       const response = await fetch(url)
       console.log('📡 Response status:', response.status, response.statusText)
@@ -132,7 +75,6 @@ export default function AddressAutocomplete({
           setShowSuggestions(data.predictions.length > 0)
         } else if (data.status === 'REQUEST_DENIED') {
           console.error('❌ REQUEST_DENIED:', data.error_message || 'Check your API key and enable Places API (New) in Google Cloud Console')
-          alert(`Google Places API Error: ${data.error_message || 'Request denied. Check API key and enable Places API (New) in Google Cloud Console.'}`)
           setSuggestions([])
           setShowSuggestions(false)
         } else if (data.status === 'OVER_QUERY_LIMIT') {
@@ -145,8 +87,8 @@ export default function AddressAutocomplete({
           setShowSuggestions(false)
         }
       } else {
-        const errorText = await response.text()
-        console.error('❌ HTTP Error:', response.status, errorText)
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
+        console.error('❌ HTTP Error:', response.status, errorData)
         setSuggestions([])
         setShowSuggestions(false)
       }
@@ -217,48 +159,24 @@ export default function AddressAutocomplete({
   }
 
   const handleSelectSuggestion = async (suggestion: AddressSuggestion) => {
-    // Get full address details from place_id
-    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+    // Get full address details from place_id via server-side proxy
     let fullAddress = suggestion.description
 
-    if (apiKey && placesServiceRef.current) {
-      try {
-        const request = {
-          placeId: suggestion.place_id,
-          fields: ['formatted_address'],
+    try {
+      const response = await fetch(
+        `/api/places/details?place_id=${encodeURIComponent(suggestion.place_id)}`
+      )
+      if (response.ok) {
+        const data = await response.json()
+        if (data.result && data.result.formatted_address) {
+          fullAddress = data.result.formatted_address
         }
-        placesServiceRef.current.getDetails(request, (place: any, status: string) => {
-          if (status === window.google.maps.places.PlacesServiceStatus.OK && place) {
-            fullAddress = place.formatted_address
-            onChange(fullAddress)
-          } else {
-            onChange(suggestion.description)
-          }
-        })
-      } catch (error) {
-        console.error('Error getting place details:', error)
-        onChange(suggestion.description)
       }
-    } else if (apiKey) {
-      // Fallback: Use REST API
-      try {
-        const response = await fetch(
-          `https://maps.googleapis.com/maps/api/place/details/json?place_id=${suggestion.place_id}&fields=formatted_address&key=${apiKey}`
-        )
-        if (response.ok) {
-          const data = await response.json()
-          if (data.result && data.result.formatted_address) {
-            fullAddress = data.result.formatted_address
-          }
-        }
-      } catch (error) {
-        console.error('Error fetching place details:', error)
-      }
-      onChange(fullAddress)
-    } else {
-      onChange(suggestion.description)
+    } catch (error) {
+      console.error('Error fetching place details:', error)
     }
-
+    
+    onChange(fullAddress)
     setShowSuggestions(false)
     setSelectedIndex(-1)
     inputRef.current?.blur()
