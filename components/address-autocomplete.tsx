@@ -87,15 +87,20 @@ export default function AddressAutocomplete({
 
   // Fetch address suggestions from Google Places Autocomplete API
   const fetchSuggestions = async (query: string) => {
+    console.log('fetchSuggestions called with query:', query)
     if (!query || query.length < 3) {
+      console.log('Query too short, clearing suggestions')
       setSuggestions([])
       setShowSuggestions(false)
       return
     }
 
+    // Get API key - in Next.js, NEXT_PUBLIC_ vars are available at build time
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+    console.log('API Key check:', apiKey ? `Found (${apiKey.substring(0, 10)}...)` : 'NOT FOUND')
+    
     if (!apiKey) {
-      console.warn('Google Maps API key not configured. Add NEXT_PUBLIC_GOOGLE_MAPS_API_KEY to your .env file.')
+      console.error('Google Maps API key not configured. Add NEXT_PUBLIC_GOOGLE_MAPS_API_KEY to your .env.local file and restart the dev server.')
       setSuggestions([])
       setShowSuggestions(false)
       return
@@ -124,11 +129,11 @@ export default function AddressAutocomplete({
           }
         )
       } else {
-        // Fallback: Use REST API if service not initialized
-        console.log('Using REST API fallback for address autocomplete')
-        const response = await fetch(
-          `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(query)}&types=address&components=country:us&key=${apiKey}`
-        )
+        // Use REST API (more reliable than JS service)
+        console.log('Using REST API for address autocomplete')
+        const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(query)}&types=address&components=country:us&key=${apiKey}`
+        console.log('Fetching from:', url.replace(apiKey, 'API_KEY_HIDDEN'))
+        const response = await fetch(url)
 
         if (response.ok) {
           const data = await response.json()
@@ -167,9 +172,15 @@ export default function AddressAutocomplete({
       clearTimeout(debounceRef.current)
     }
 
-    debounceRef.current = setTimeout(() => {
-      fetchSuggestions(value)
-    }, 300) // Wait 300ms after user stops typing
+    if (value && value.length >= 3) {
+      debounceRef.current = setTimeout(() => {
+        console.log('Fetching suggestions for:', value)
+        fetchSuggestions(value)
+      }, 300) // Wait 300ms after user stops typing
+    } else {
+      setSuggestions([])
+      setShowSuggestions(false)
+    }
 
     return () => {
       if (debounceRef.current) {
@@ -255,7 +266,9 @@ export default function AddressAutocomplete({
   }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    onChange(e.target.value)
+    const newValue = e.target.value
+    console.log('Input changed:', newValue)
+    onChange(newValue)
     setSelectedIndex(-1)
   }
 
