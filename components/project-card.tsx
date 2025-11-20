@@ -223,11 +223,45 @@ export default function ProjectCard({ project }: ProjectCardProps) {
                           <span className="text-gray-600 dark:text-gray-400 truncate flex-1">{milestone.name}</span>
                           <span className="text-gray-500 dark:text-gray-500 ml-2">{Math.round(taskProgress)}%</span>
                         </div>
-                        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
-                          <div 
-                            className="bg-blue-600 h-1.5 rounded-full transition-all"
-                            style={{ width: `${taskProgress}%` }}
-                          />
+                        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5 overflow-hidden">
+                          {totalTasks > 0 ? (
+                            // Show colored segments based on task statuses
+                            <div className="h-1.5 flex transition-all">
+                              {(() => {
+                                const completed = tasks.filter((t: any) => t.status === 'COMPLETED').length
+                                const inProgress = tasks.filter((t: any) => t.status === 'IN_PROGRESS').length
+                                const pending = tasks.filter((t: any) => t.status === 'PENDING' || t.status === 'ON_HOLD').length
+                                return (
+                                  <>
+                                    {completed > 0 && (
+                                      <div 
+                                        className="h-full bg-green-500"
+                                        style={{ width: `${(completed / totalTasks) * 100}%` }}
+                                      />
+                                    )}
+                                    {inProgress > 0 && (
+                                      <div 
+                                        className="h-full bg-blue-500"
+                                        style={{ width: `${(inProgress / totalTasks) * 100}%` }}
+                                      />
+                                    )}
+                                    {pending > 0 && (
+                                      <div 
+                                        className="h-full bg-yellow-500"
+                                        style={{ width: `${(pending / totalTasks) * 100}%` }}
+                                      />
+                                    )}
+                                  </>
+                                )
+                              })()}
+                            </div>
+                          ) : (
+                            // Show single color based on milestone status
+                            <div 
+                              className="bg-blue-600 h-1.5 rounded-full transition-all"
+                              style={{ width: `${taskProgress}%` }}
+                            />
+                          )}
                         </div>
                       </div>
                     )

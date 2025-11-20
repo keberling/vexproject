@@ -226,6 +226,21 @@ export default function MilestoneList({ projectId, milestones, onUpdate }: Miles
     return statusProgressMap[milestone.status] || 0
   }
 
+  // Calculate task status breakdown for colored progress bar
+  const getTaskStatusBreakdown = (milestoneId: string): { completed: number; inProgress: number; pending: number; total: number } => {
+    const milestoneTasks = tasks[milestoneId] || []
+    if (milestoneTasks.length === 0) {
+      return { completed: 0, inProgress: 0, pending: 0, total: 0 }
+    }
+    
+    return {
+      completed: milestoneTasks.filter(t => t.status === 'COMPLETED').length,
+      inProgress: milestoneTasks.filter(t => t.status === 'IN_PROGRESS').length,
+      pending: milestoneTasks.filter(t => t.status === 'PENDING' || t.status === 'ON_HOLD').length,
+      total: milestoneTasks.length,
+    }
+  }
+
   // Fetch users for assignment
   useEffect(() => {
     const fetchUsers = async () => {
@@ -1067,10 +1082,44 @@ export default function MilestoneList({ projectId, milestones, onUpdate }: Miles
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 relative">
                   {/* Floating Progress Bar */}
                   <div className="absolute top-0 left-0 right-0 h-1 bg-gray-200 dark:bg-gray-700">
-                    <div 
-                      className="h-full bg-blue-600 transition-all duration-300"
-                      style={{ width: `${calculateMilestoneProgress(milestone)}%` }}
-                    />
+                    {(() => {
+                      const milestoneTasks = tasks[milestone.id] || []
+                      if (milestoneTasks.length > 0) {
+                        // Show colored segments based on task statuses
+                        const breakdown = getTaskStatusBreakdown(milestone.id)
+                        const total = breakdown.total
+                        return (
+                          <div className="h-full flex transition-all duration-300">
+                            {breakdown.completed > 0 && (
+                              <div 
+                                className="h-full bg-green-500"
+                                style={{ width: `${(breakdown.completed / total) * 100}%` }}
+                              />
+                            )}
+                            {breakdown.inProgress > 0 && (
+                              <div 
+                                className="h-full bg-blue-500"
+                                style={{ width: `${(breakdown.inProgress / total) * 100}%` }}
+                              />
+                            )}
+                            {breakdown.pending > 0 && (
+                              <div 
+                                className="h-full bg-yellow-500"
+                                style={{ width: `${(breakdown.pending / total) * 100}%` }}
+                              />
+                            )}
+                          </div>
+                        )
+                      } else {
+                        // Show single color based on milestone status
+                        return (
+                          <div 
+                            className="h-full bg-blue-600 transition-all duration-300"
+                            style={{ width: `${calculateMilestoneProgress(milestone)}%` }}
+                          />
+                        )
+                      }
+                    })()}
                   </div>
                   <div className="flex items-center gap-3 flex-1 mt-1">
                     <StatusIcon className={`h-5 w-5 ${
