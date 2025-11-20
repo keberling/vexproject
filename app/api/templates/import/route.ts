@@ -82,6 +82,7 @@ export async function POST(request: NextRequest) {
                   create: (milestone.tasks || []).map((task: any, taskIndex: number) => ({
                     name: task.name,
                     description: task.description || null,
+                    assignedToId: task.assignedToId || null,
                     order: task.order !== undefined ? task.order : taskIndex,
                   })),
                 },
@@ -126,6 +127,7 @@ export async function POST(request: NextRequest) {
                   create: (milestone.tasks || []).map((task: any, taskIndex: number) => ({
                     name: task.name,
                     description: task.description || null,
+                    assignedToId: task.assignedToId || null,
                     order: task.order !== undefined ? task.order : taskIndex,
                   })),
                 },

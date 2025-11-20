@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { projectId, name, description, category, isImportant, dueDate } = body
+    const { projectId, name, description, category, isImportant, dueDate, assignedToId } = body
 
     if (!projectId || !name) {
       return NextResponse.json(
@@ -31,6 +31,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 })
     }
 
+    // If assignedToId is provided, verify the user exists
+    if (assignedToId) {
+      const assignedUser = await prisma.user.findUnique({
+        where: { id: assignedToId },
+      })
+      if (!assignedUser) {
+        return NextResponse.json({ error: 'Assigned user not found' }, { status: 400 })
+      }
+    }
+
     const milestone = await prisma.milestone.create({
       data: {
         name,
@@ -38,6 +48,7 @@ export async function POST(request: NextRequest) {
         category: category || null,
         isImportant: isImportant || false,
         dueDate: dueDate ? new Date(dueDate) : null,
+        assignedToId: assignedToId || null,
         projectId,
       },
     })

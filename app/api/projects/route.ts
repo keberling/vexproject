@@ -87,6 +87,7 @@ export async function POST(request: NextRequest) {
               name: tt.name,
               description: tt.description,
               status: 'PENDING',
+              assignedToId: tt.assignedToId || null,
             })),
           },
         }))

@@ -22,6 +22,14 @@ export default async function ProjectDetailPage({
       milestones: {
         orderBy: { createdAt: 'asc' },
         include: {
+          assignedTo: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              provider: true,
+            },
+          },
           files: {
             orderBy: { uploadedAt: 'desc' },
           },

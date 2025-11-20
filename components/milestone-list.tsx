@@ -11,6 +11,12 @@ import UserAvatar from './user-avatar'
 interface MilestoneListProps {
   projectId: string
   milestones: (Milestone & {
+    assignedTo?: {
+      id: string
+      name: string | null
+      email: string
+      provider: string | null
+    } | null
     comments?: (MilestoneComment & {
       user: {
         id: string
@@ -142,6 +148,7 @@ export default function MilestoneList({ projectId, milestones, onUpdate }: Miles
     category: '',
     isImportant: false,
     dueDate: '',
+    assignedToId: '',
   })
   const [editingMilestone, setEditingMilestone] = useState<string | null>(null)
   const [editFormData, setEditFormData] = useState<Record<string, {
@@ -454,6 +461,7 @@ export default function MilestoneList({ projectId, milestones, onUpdate }: Miles
           projectId,
           ...formData,
           dueDate: formData.dueDate || undefined,
+          assignedToId: formData.assignedToId || undefined,
         }),
       })
 
@@ -462,7 +470,7 @@ export default function MilestoneList({ projectId, milestones, onUpdate }: Miles
       }
 
       setIsDialogOpen(false)
-      setFormData({ name: '', description: '', category: '', isImportant: false, dueDate: '' })
+      setFormData({ name: '', description: '', category: '', isImportant: false, dueDate: '', assignedToId: '' })
       onUpdate()
     } catch (error) {
       console.error('Error creating milestone:', error)
@@ -1034,6 +1042,23 @@ export default function MilestoneList({ projectId, milestones, onUpdate }: Miles
                     className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2"
                   />
                 </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Assign To
+                  </label>
+                  <select
+                    value={formData.assignedToId}
+                    onChange={(e) => setFormData({ ...formData, assignedToId: e.target.value })}
+                    className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2"
+                  >
+                    <option value="">Unassigned</option>
+                    {users.map((user) => (
+                      <option key={user.id} value={user.id}>
+                        {user.name || user.email}
+                      </option>
+                    ))}
+                  </select>
+                </div>
                 <div className="flex justify-end gap-2">
                   <Dialog.Close asChild>
                     <button
@@ -1181,6 +1206,40 @@ export default function MilestoneList({ projectId, milestones, onUpdate }: Miles
                         <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${statusColors[milestone.status as keyof typeof statusColors] || statusColors.PENDING}`}>
                           {statusLabels[milestone.status as keyof typeof statusLabels] || milestone.status}
                         </span>
+                        {(milestone as any).assignedTo && (
+                          <div className="flex items-center gap-1">
+                            <UserAvatar
+                              userId={(milestone as any).assignedTo.id}
+                              userName={(milestone as any).assignedTo.name}
+                              userEmail={(milestone as any).assignedTo.email}
+                              provider={(milestone as any).assignedTo.provider}
+                              size={16}
+                            />
+                            <span className="text-xs text-gray-600 dark:text-gray-400">
+                              {(milestone as any).assignedTo.name || (milestone as any).assignedTo.email}
+                            </span>
+                          </div>
+                        )}
+                        <select
+                          value={(milestone as any).assignedToId || ''}
+                          onChange={(e) => {
+                            const assignedToId = e.target.value || null
+                            fetch(`/api/milestones/${milestone.id}`, {
+                              method: 'PATCH',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ assignedToId }),
+                            }).then(() => onUpdate())
+                          }}
+                          className="text-xs rounded border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white px-2 py-1"
+                          title="Assign milestone"
+                        >
+                          <option value="">Unassigned</option>
+                          {users.map((user) => (
+                            <option key={user.id} value={user.id}>
+                              {user.name || user.email}
+                            </option>
+                          ))}
+                        </select>
                         <label className="inline-flex items-center px-1.5 py-0.5 text-xs rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 cursor-pointer">
                           <Paperclip className="h-3 w-3" />
                           <input
@@ -1408,6 +1467,34 @@ export default function MilestoneList({ projectId, milestones, onUpdate }: Miles
                               }))}
                               className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2"
                             />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                              Assign To
+                            </label>
+                            <select
+                              value={(milestone as any).assignedToId || ''}
+                              onChange={(e) => {
+                                const assignedToId = e.target.value || null
+                                fetch(`/api/milestones/${milestone.id}`, {
+                                  method: 'PATCH',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ assignedToId }),
+                                }).then(() => {
+                                  onUpdate()
+                                  setEditingMilestone(null)
+                                  setEditFormData({})
+                                })
+                              }}
+                              className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2"
+                            >
+                              <option value="">Unassigned</option>
+                              {users.map((user) => (
+                                <option key={user.id} value={user.id}>
+                                  {user.name || user.email}
+                                </option>
+                              ))}
+                            </select>
                           </div>
                           <div className="flex justify-end gap-2">
                             <button

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Plus, Trash2, Edit2, Star, FileText, Download, Upload, Check } from 'lucide-react'
 import * as Dialog from '@radix-ui/react-dialog'
@@ -10,6 +10,7 @@ interface TemplateTask {
   name: string
   description: string | null
   order: number
+  assignedToId?: string | null
 }
 
 interface TemplateMilestone {
@@ -46,9 +47,26 @@ export default function TemplatesList({ templates: initialTemplates }: Templates
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    milestones: [{ name: '', description: '', category: '', tasks: [{ name: '', description: '', order: 0 }], order: 0 }],
+    milestones: [{ name: '', description: '', category: '', tasks: [{ name: '', description: '', order: 0, assignedToId: '' }], order: 0 }],
     isDefault: false,
   })
+  const [users, setUsers] = useState<Array<{ id: string; name: string | null; email: string }>>([])
+
+  // Fetch users for assignment
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const response = await fetch('/api/users')
+        if (response.ok) {
+          const data = await response.json()
+          setUsers(data.users || [])
+        }
+      } catch (error) {
+        console.error('Error fetching users:', error)
+      }
+    }
+    fetchUsers()
+  }, [])
 
   const handleDelete = async (templateId: string) => {
     if (!confirm('Are you sure you want to delete this template? This will not affect existing projects.')) {
@@ -108,7 +126,7 @@ export default function TemplatesList({ templates: initialTemplates }: Templates
       setFormData({
         name: '',
         description: '',
-        milestones: [{ name: '', description: '', category: '', tasks: [{ name: '', description: '', order: 0 }], order: 0 }],
+        milestones: [{ name: '', description: '', category: '', tasks: [{ name: '', description: '', order: 0, assignedToId: '' }], order: 0 }],
         isDefault: false,
       })
       router.refresh()
@@ -136,6 +154,7 @@ export default function TemplatesList({ templates: initialTemplates }: Templates
                 name: t.name,
                 description: t.description || '',
                 order: t.order,
+                assignedToId: (t as any).assignedToId || '',
               })),
               order: m.order,
             }))
@@ -185,7 +204,7 @@ export default function TemplatesList({ templates: initialTemplates }: Templates
       setFormData({
         name: '',
         description: '',
-        milestones: [{ name: '', description: '', category: '', tasks: [{ name: '', description: '', order: 0 }], order: 0 }],
+        milestones: [{ name: '', description: '', category: '', tasks: [{ name: '', description: '', order: 0, assignedToId: '' }], order: 0 }],
         isDefault: false,
       })
       router.refresh()
@@ -199,7 +218,7 @@ export default function TemplatesList({ templates: initialTemplates }: Templates
   const addMilestone = () => {
     setFormData({
       ...formData,
-      milestones: [...formData.milestones, { name: '', description: '', category: '', tasks: [{ name: '', description: '', order: 0 }], order: formData.milestones.length }],
+      milestones: [...formData.milestones, { name: '', description: '', category: '', tasks: [{ name: '', description: '', order: 0, assignedToId: '' }], order: formData.milestones.length }],
     })
   }
 
@@ -207,7 +226,7 @@ export default function TemplatesList({ templates: initialTemplates }: Templates
     const updated = [...formData.milestones]
     updated[milestoneIndex] = {
       ...updated[milestoneIndex],
-      tasks: [...(updated[milestoneIndex].tasks || []), { name: '', description: '', order: (updated[milestoneIndex].tasks || []).length }],
+      tasks: [...(updated[milestoneIndex].tasks || []), { name: '', description: '', order: (updated[milestoneIndex].tasks || []).length, assignedToId: '' }],
     }
     setFormData({ ...formData, milestones: updated })
   }
@@ -594,6 +613,18 @@ export default function TemplatesList({ templates: initialTemplates }: Templates
                                     className="block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-xs bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-2 py-1"
                                     placeholder="Task description (optional)"
                                   />
+                                  <select
+                                    value={task.assignedToId || ''}
+                                    onChange={(e) => updateTask(index, taskIndex, 'assignedToId', e.target.value)}
+                                    className="block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-xs bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-2 py-1"
+                                  >
+                                    <option value="">Unassigned</option>
+                                    {users.map((user) => (
+                                      <option key={user.id} value={user.id}>
+                                        {user.name || user.email}
+                                      </option>
+                                    ))}
+                                  </select>
                                 </div>
                                 {(milestone.tasks || []).length > 1 && (
                                   <button
@@ -631,7 +662,7 @@ export default function TemplatesList({ templates: initialTemplates }: Templates
                       setFormData({
                         name: '',
                         description: '',
-                        milestones: [{ name: '', description: '', category: '', tasks: [{ name: '', description: '', order: 0 }], order: 0 }],
+                        milestones: [{ name: '', description: '', category: '', tasks: [{ name: '', description: '', order: 0, assignedToId: '' }], order: 0 }],
                         isDefault: false,
                       })
                     }}

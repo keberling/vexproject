@@ -29,6 +29,7 @@ model User {
   statusChanges StatusChange[]
   backupSchedules BackupSchedule[]
   assignedTasks Task[]
+  assignedMilestones Milestone[]
   taskComments TaskComment[]
 }
 
@@ -76,6 +77,8 @@ model Milestone {
   updatedAt     DateTime  @updatedAt
   projectId     String
   project       Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assignedToId String?
+  assignedTo   User?     @relation(fields: [assignedToId], references: [id], onDelete: SetNull)
   files         ProjectFile[]
   comments      MilestoneComment[]
   communications Communication[]
@@ -236,6 +239,7 @@ model TemplateTask {
   name          String
   description   String?
   order         Int       @default(0)
+  assignedToId  String?   // User ID for task assignment in template
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   templateMilestoneId String

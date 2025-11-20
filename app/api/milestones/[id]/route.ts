@@ -40,6 +40,16 @@ export async function PATCH(
       })
     }
 
+    // If assignedToId is being updated, verify the user exists
+    if (body.assignedToId !== undefined && body.assignedToId) {
+      const assignedUser = await prisma.user.findUnique({
+        where: { id: body.assignedToId },
+      })
+      if (!assignedUser) {
+        return NextResponse.json({ error: 'Assigned user not found' }, { status: 400 })
+      }
+    }
+
     const updatedMilestone = await prisma.milestone.update({
       where: { id: params.id },
       data: {
@@ -49,6 +59,7 @@ export async function PATCH(
         ...(body.status && { status: body.status }),
         ...(body.dueDate !== undefined && { dueDate: body.dueDate ? new Date(body.dueDate) : null }),
         ...(body.isImportant !== undefined && { isImportant: body.isImportant }),
+        ...(body.assignedToId !== undefined && { assignedToId: body.assignedToId || null }),
         ...(body.status === 'COMPLETED' && !milestone.completedDate && {
           completedDate: new Date(),
         }),
@@ -57,6 +68,14 @@ export async function PATCH(
         }),
       },
     })
+
+    // If milestone assignment changed, update all tasks under this milestone
+    if (body.assignedToId !== undefined) {
+      await prisma.task.updateMany({
+        where: { milestoneId: params.id },
+        data: { assignedToId: body.assignedToId || null },
+      })
+    }
 
     return NextResponse.json({ milestone: updatedMilestone })
   } catch (error) {
