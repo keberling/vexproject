@@ -40,11 +40,11 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { name, location, address, city, state, zipCode, description, templateId } = body
+    const { name, address, description, gcContact, cdsContact, franchiseOwnerContact, templateId } = body
 
-    if (!name || !location) {
+    if (!name) {
       return NextResponse.json(
-        { error: 'Name and location are required' },
+        { error: 'Name is required' },
         { status: 400 }
       )
     }
@@ -86,12 +86,11 @@ export async function POST(request: NextRequest) {
     const project = await prisma.project.create({
       data: {
         name,
-        location,
         address: address || null,
-        city: city || null,
-        state: state || null,
-        zipCode: zipCode || null,
         description: description || null,
+        gcContact: gcContact || null,
+        cdsContact: cdsContact || null,
+        franchiseOwnerContact: franchiseOwnerContact || null,
         templateId: templateId || null,
         userId: user.userId,
         milestones: {

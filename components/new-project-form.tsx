@@ -25,12 +25,11 @@ export default function NewProjectForm() {
   const [loadingTemplates, setLoadingTemplates] = useState(true)
   const [formData, setFormData] = useState({
     name: '',
-    location: '',
     address: '',
-    city: '',
-    state: '',
-    zipCode: '',
     description: '',
+    gcContact: '',
+    cdsContact: '',
+    franchiseOwnerContact: '',
     templateId: '',
   })
 
@@ -102,7 +101,7 @@ export default function NewProjectForm() {
 
       <div>
         <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-          Project Name *
+          Name *
         </label>
         <input
           type="text"
@@ -112,29 +111,13 @@ export default function NewProjectForm() {
           value={formData.name}
           onChange={handleChange}
           className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2"
-          placeholder="e.g., Office Building - Security System Installation"
-        />
-      </div>
-
-      <div>
-        <label htmlFor="location" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-          Location *
-        </label>
-        <input
-          type="text"
-          name="location"
-          id="location"
-          required
-          value={formData.location}
-          onChange={handleChange}
-          className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2"
-          placeholder="e.g., Main Office"
+          placeholder="Project name"
         />
       </div>
 
       <div>
         <label htmlFor="address" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-          Street Address
+          Address
         </label>
         <input
           type="text"
@@ -143,60 +126,13 @@ export default function NewProjectForm() {
           value={formData.address}
           onChange={handleChange}
           className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2"
-          placeholder="123 Main St"
-        />
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label htmlFor="city" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            City
-          </label>
-          <input
-            type="text"
-            name="city"
-            id="city"
-            value={formData.city}
-            onChange={handleChange}
-            className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2"
-            placeholder="City"
-          />
-        </div>
-        <div>
-          <label htmlFor="state" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            State
-          </label>
-          <input
-            type="text"
-            name="state"
-            id="state"
-            value={formData.state}
-            onChange={handleChange}
-            className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2"
-            placeholder="State"
-            maxLength={2}
-          />
-        </div>
-      </div>
-
-      <div>
-        <label htmlFor="zipCode" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-          ZIP Code
-        </label>
-        <input
-          type="text"
-          name="zipCode"
-          id="zipCode"
-          value={formData.zipCode}
-          onChange={handleChange}
-          className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2"
-          placeholder="12345"
+          placeholder="Project address"
         />
       </div>
 
       <div>
         <label htmlFor="templateId" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-          Project Template
+          Template
         </label>
         {loadingTemplates ? (
           <div className="mt-1 text-sm text-gray-500 dark:text-gray-400">Loading templates...</div>
@@ -240,7 +176,52 @@ export default function NewProjectForm() {
           value={formData.description}
           onChange={handleChange}
           className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2"
-          placeholder="Project details and notes..."
+          placeholder="Project description..."
+        />
+      </div>
+
+      <div>
+        <label htmlFor="gcContact" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+          GC Contact
+        </label>
+        <input
+          type="text"
+          name="gcContact"
+          id="gcContact"
+          value={formData.gcContact}
+          onChange={handleChange}
+          className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2"
+          placeholder="GC contact information"
+        />
+      </div>
+
+      <div>
+        <label htmlFor="cdsContact" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+          CDS Contact
+        </label>
+        <input
+          type="text"
+          name="cdsContact"
+          id="cdsContact"
+          value={formData.cdsContact}
+          onChange={handleChange}
+          className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2"
+          placeholder="CDS contact information"
+        />
+      </div>
+
+      <div>
+        <label htmlFor="franchiseOwnerContact" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+          Franchise Owner Contact
+        </label>
+        <input
+          type="text"
+          name="franchiseOwnerContact"
+          id="franchiseOwnerContact"
+          value={formData.franchiseOwnerContact}
+          onChange={handleChange}
+          className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2"
+          placeholder="Franchise owner contact information"
         />
       </div>
 

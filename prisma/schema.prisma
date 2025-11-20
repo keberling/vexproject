@@ -35,12 +35,11 @@ model User {
 model Project {
   id            String    @id @default(cuid())
   name          String
-  location      String
   address       String?
-  city          String?
-  state         String?
-  zipCode       String?
   description   String?
+  gcContact     String?   // GC Contact
+  cdsContact    String?   // CDS Contact
+  franchiseOwnerContact String? // Franchise Owner Contact
   status        String        @default("INITIAL_CONTACT")
   templateId    String?
   template      ProjectTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)

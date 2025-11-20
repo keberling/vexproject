@@ -138,8 +138,22 @@ export default function MilestoneList({ projectId, milestones, onUpdate }: Miles
   const [formData, setFormData] = useState({
     name: '',
     description: '',
+    category: '',
     dueDate: '',
   })
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set())
+
+  // Expand all categories by default on mount
+  useEffect(() => {
+    if (milestones.length > 0) {
+      const categories = new Set<string>()
+      milestones.forEach(m => {
+        const category = (m as any).category || 'Uncategorized'
+        categories.add(category)
+      })
+      setExpandedCategories(categories)
+    }
+  }, [milestones.length]) // Only run when milestone count changes
   const [commentTexts, setCommentTexts] = useState<Record<string, string>>({})
   const [tasks, setTasks] = useState<Record<string, (Task & {
     assignedTo: {
@@ -394,7 +408,7 @@ export default function MilestoneList({ projectId, milestones, onUpdate }: Miles
       }
 
       setIsDialogOpen(false)
-      setFormData({ name: '', description: '', dueDate: '' })
+      setFormData({ name: '', description: '', category: '', dueDate: '' })
       onUpdate()
     } catch (error) {
       console.error('Error creating milestone:', error)
@@ -747,6 +761,40 @@ export default function MilestoneList({ projectId, milestones, onUpdate }: Miles
     setExpandedTasks(newExpanded)
   }
 
+  const toggleCategory = (category: string) => {
+    const newExpanded = new Set(expandedCategories)
+    if (newExpanded.has(category)) {
+      newExpanded.delete(category)
+    } else {
+      newExpanded.add(category)
+    }
+    setExpandedCategories(newExpanded)
+  }
+
+  // Group milestones by category
+  const groupedMilestones = milestones.reduce((acc, milestone) => {
+    const category = (milestone as any).category || 'Uncategorized'
+    if (!acc[category]) {
+      acc[category] = []
+    }
+    acc[category].push(milestone)
+    return acc
+  }, {} as Record<string, typeof milestones>)
+
+  // Sort categories (Uncategorized last)
+  const sortedCategories = Object.keys(groupedMilestones).sort((a, b) => {
+    if (a === 'Uncategorized') return 1
+    if (b === 'Uncategorized') return -1
+    return a.localeCompare(b)
+  })
+
+  // Sort milestones within each category by creation date
+  sortedCategories.forEach(category => {
+    groupedMilestones[category].sort((a, b) => 
+      new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+    )
+  })
+
   return (
     <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
       <div className="flex items-center justify-between mb-4">
@@ -790,6 +838,18 @@ export default function MilestoneList({ projectId, milestones, onUpdate }: Miles
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Category
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.category}
+                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                    placeholder="Optional category/group"
+                    className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                     Due Date
                   </label>
                   <input
@@ -825,8 +885,29 @@ export default function MilestoneList({ projectId, milestones, onUpdate }: Miles
       {milestones.length === 0 ? (
         <p className="text-gray-500 dark:text-gray-400 text-center py-8">No milestones yet. Add your first milestone to get started.</p>
       ) : (
-        <div className="space-y-3">
-          {milestones.map((milestone) => {
+        <div className="space-y-4">
+          {sortedCategories.map((category) => {
+            const categoryMilestones = groupedMilestones[category]
+            const isCategoryExpanded = expandedCategories.has(category)
+            return (
+              <div key={category} className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                <button
+                  onClick={() => toggleCategory(category)}
+                  className="w-full flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    {isCategoryExpanded ? <ChevronUp className="h-4 w-4 text-gray-600 dark:text-gray-400" /> : <ChevronDown className="h-4 w-4 text-gray-600 dark:text-gray-400" />}
+                    <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
+                      {category}
+                    </h3>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      ({categoryMilestones.length})
+                    </span>
+                  </div>
+                </button>
+                {isCategoryExpanded && (
+                  <div className="space-y-3 p-3">
+                    {categoryMilestones.map((milestone) => {
             const StatusIcon = statusIcons[milestone.status as keyof typeof statusIcons] || Clock
             const isExpanded = expandedMilestones.has(milestone.id)
             return (
@@ -1549,6 +1630,11 @@ export default function MilestoneList({ projectId, milestones, onUpdate }: Miles
                         )}
                       </div>
                     </div>
+                  </div>
+                )}
+              </div>
+            )
+                    })}
                   </div>
                 )}
               </div>

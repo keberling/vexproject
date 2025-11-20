@@ -112,12 +112,11 @@ export async function PATCH(
       where: { id: params.id },
       data: {
         ...(body.name && { name: body.name }),
-        ...(body.location && { location: body.location }),
         ...(body.address !== undefined && { address: body.address }),
-        ...(body.city !== undefined && { city: body.city }),
-        ...(body.state !== undefined && { state: body.state }),
-        ...(body.zipCode !== undefined && { zipCode: body.zipCode }),
         ...(body.description !== undefined && { description: body.description }),
+        ...(body.gcContact !== undefined && { gcContact: body.gcContact }),
+        ...(body.cdsContact !== undefined && { cdsContact: body.cdsContact }),
+        ...(body.franchiseOwnerContact !== undefined && { franchiseOwnerContact: body.franchiseOwnerContact }),
         ...(body.status && { status: body.status }),
       },
       include: {

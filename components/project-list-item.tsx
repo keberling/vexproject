@@ -120,10 +120,12 @@ export default function ProjectListItem({ project }: ProjectListItemProps) {
               </span>
             </div>
             <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
-              <div className="flex items-center gap-1">
-                <MapPin className="h-4 w-4" />
-                <span>{project.location}</span>
-              </div>
+              {project.address && (
+                <div className="flex items-center gap-1">
+                  <MapPin className="h-4 w-4" />
+                  <span>{project.address}</span>
+                </div>
+              )}
               {project.milestones.length > 0 && (
                 <div className="flex items-center gap-1">
                   <Check className="h-4 w-4" />

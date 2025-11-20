@@ -160,12 +160,9 @@ export default function ProjectCard({ project }: ProjectCardProps) {
           </div>
         </div>
         <Link href={`/dashboard/projects/${project.id}`}>
-          <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
-            {project.location}
-          </p>
-          {project.city && project.state && (
-            <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
-              {project.city}, {project.state}
+          {project.address && (
+            <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
+              {project.address}
             </p>
           )}
         </Link>
