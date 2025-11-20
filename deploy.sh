@@ -3,6 +3,7 @@
 # VEX Project Management - Deployment Script
 # Updates code from git, rebuilds application, and restarts service
 # Preserves database - does NOT run db:push or db:seed
+# Can be run from home directory - will auto-detect app location
 
 set -e  # Exit on error
 
@@ -18,19 +19,55 @@ echo "VEX Project Management - Deployment"
 echo "==========================================${NC}"
 echo ""
 
-# Get current directory
-APP_DIR=$(pwd)
+# Try to find the application directory
+# Check common locations
+POSSIBLE_DIRS=(
+    "/opt/VEXProjects"
+    "/home/$USER/vexproject"
+    "/home/$USER/VEXProjects"
+    "$HOME/vexproject"
+    "$HOME/VEXProjects"
+    "$(pwd)"
+)
 
-# Check if we're in the right directory
-if [ ! -f "$APP_DIR/package.json" ]; then
-    echo -e "${RED}Error: package.json not found.${NC}"
-    echo "Please run this script from the application root directory."
-    exit 1
+APP_DIR=""
+
+# First, check if we're already in the app directory
+if [ -f "$(pwd)/package.json" ]; then
+    APP_DIR=$(pwd)
+    echo -e "${GREEN}✓ Found application in current directory: $APP_DIR${NC}"
+else
+    # Try to find it in common locations
+    for dir in "${POSSIBLE_DIRS[@]}"; do
+        if [ -f "$dir/package.json" ]; then
+            APP_DIR="$dir"
+            echo -e "${GREEN}✓ Found application at: $APP_DIR${NC}"
+            break
+        fi
+    done
 fi
 
+# If still not found, ask user
+if [ -z "$APP_DIR" ] || [ ! -f "$APP_DIR/package.json" ]; then
+    echo -e "${YELLOW}Could not auto-detect application directory.${NC}"
+    echo "Please enter the full path to your application directory:"
+    read -p "Path: " APP_DIR
+    
+    if [ ! -f "$APP_DIR/package.json" ]; then
+        echo -e "${RED}Error: package.json not found at $APP_DIR${NC}"
+        exit 1
+    fi
+fi
+
+echo -e "${BLUE}Using application directory: $APP_DIR${NC}"
+echo ""
+
+# Change to application directory
+cd "$APP_DIR"
+
 # Check if .env exists
-if [ ! -f "$APP_DIR/.env" ]; then
-    echo -e "${YELLOW}Warning: .env file not found.${NC}"
+if [ ! -f ".env" ]; then
+    echo -e "${YELLOW}Warning: .env file not found in $APP_DIR${NC}"
     echo "Make sure your environment variables are set."
     read -p "Continue anyway? (y/n) " -n 1 -r
     echo
@@ -110,18 +147,24 @@ echo ""
 
 # Step 5: Restart service (if systemd service exists)
 echo -e "${BLUE}[5/5] Restarting service...${NC}"
-if systemctl is-active --quiet vexproject.service 2>/dev/null; then
+if systemctl is-active --quiet vexproject.service 2>/dev/null || systemctl list-units --type=service | grep -q "vexproject.service"; then
     echo "Restarting systemd service..."
     if sudo systemctl restart vexproject.service; then
         echo -e "${GREEN}✓ Service restarted${NC}"
         
         # Wait a moment and check status
-        sleep 2
+        sleep 3
         if systemctl is-active --quiet vexproject.service; then
             echo -e "${GREEN}✓ Service is running${NC}"
+            echo ""
+            echo "Service status:"
+            sudo systemctl status vexproject.service --no-pager -l | head -15
         else
             echo -e "${YELLOW}⚠ Service may not be running. Check status with:${NC}"
             echo "  sudo systemctl status vexproject.service"
+            echo ""
+            echo "Recent logs:"
+            sudo journalctl -u vexproject.service -n 20 --no-pager | tail -10
         fi
     else
         echo -e "${RED}Error: Failed to restart service${NC}"
@@ -132,6 +175,7 @@ elif command -v pm2 &> /dev/null && pm2 list | grep -q "vexproject"; then
     echo "Restarting PM2 process..."
     if pm2 restart vexproject; then
         echo -e "${GREEN}✓ PM2 process restarted${NC}"
+        pm2 status vexproject
     else
         echo -e "${RED}Error: Failed to restart PM2 process${NC}"
     fi
