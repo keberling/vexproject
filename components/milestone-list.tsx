@@ -83,6 +83,19 @@ export default function MilestoneList({ projectId, milestones, onUpdate }: Miles
       email: string
     }
   })[]>>({})
+  const [milestoneCommunications, setMilestoneCommunications] = useState<Record<string, Array<{
+    id: string
+    type: string
+    subject: string | null
+    content: string
+    direction: string | null
+    createdAt: Date | string
+    user: {
+      id: string
+      name: string | null
+      email: string
+    }
+  }>>>({})
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -90,9 +103,9 @@ export default function MilestoneList({ projectId, milestones, onUpdate }: Miles
   })
   const [commentTexts, setCommentTexts] = useState<Record<string, string>>({})
 
-  // Pre-load comments for all milestones on mount
+  // Pre-load comments and communications for all milestones on mount
   useEffect(() => {
-    const loadAllComments = async () => {
+    const loadAllMilestoneData = async () => {
       const commentsMap: Record<string, (MilestoneComment & {
         user: {
           id: string
@@ -100,6 +113,19 @@ export default function MilestoneList({ projectId, milestones, onUpdate }: Miles
           email: string
         }
       })[]> = {}
+      const communicationsMap: Record<string, Array<{
+        id: string
+        type: string
+        subject: string | null
+        content: string
+        direction: string | null
+        createdAt: Date | string
+        user: {
+          id: string
+          name: string | null
+          email: string
+        }
+      }>> = {}
 
       // Use pre-loaded comments from props if available, otherwise fetch
       for (const milestone of milestones) {
@@ -118,12 +144,33 @@ export default function MilestoneList({ projectId, milestones, onUpdate }: Miles
             commentsMap[milestone.id] = []
           }
         }
+
+        // Fetch communications for this milestone
+        try {
+          const commsResponse = await fetch(`/api/communications?projectId=${projectId}&milestoneId=${milestone.id}`)
+          if (commsResponse.ok) {
+            const commsData = await commsResponse.json()
+            communicationsMap[milestone.id] = (commsData.communications || []).map((comm: any) => ({
+              id: comm.id,
+              type: comm.type,
+              subject: comm.subject,
+              content: comm.content,
+              direction: comm.direction,
+              createdAt: comm.createdAt,
+              user: comm.user,
+            }))
+          }
+        } catch (error) {
+          console.error(`Error fetching communications for milestone ${milestone.id}:`, error)
+          communicationsMap[milestone.id] = []
+        }
       }
       setMilestoneComments(commentsMap)
+      setMilestoneCommunications(communicationsMap)
     }
 
-    loadAllComments()
-  }, [milestones])
+    loadAllMilestoneData()
+  }, [milestones, projectId])
 
   // Fetch files for expanded milestones
   useEffect(() => {
@@ -282,6 +329,20 @@ export default function MilestoneList({ projectId, milestones, onUpdate }: Miles
         const commentsData = await commentsResponse.json()
         setMilestoneComments(prev => ({ ...prev, [milestoneId]: commentsData.comments || [] }))
       }
+      // Refresh communications for this milestone
+      const commsResponse = await fetch(`/api/communications?projectId=${projectId}&milestoneId=${milestoneId}`)
+      if (commsResponse.ok) {
+        const commsData = await commsResponse.json()
+        setMilestoneCommunications(prev => ({ ...prev, [milestoneId]: (commsData.communications || []).map((comm: any) => ({
+          id: comm.id,
+          type: comm.type,
+          subject: comm.subject,
+          content: comm.content,
+          direction: comm.direction,
+          createdAt: comm.createdAt,
+          user: comm.user,
+        })) }))
+      }
       onUpdate()
     } catch (error) {
       console.error('Error adding comment:', error)
@@ -433,10 +494,10 @@ export default function MilestoneList({ projectId, milestones, onUpdate }: Miles
                             {milestoneFiles[milestone.id].length}
                           </span>
                         )}
-                        {(milestoneComments[milestone.id]?.length || 0) > 0 && (
+                        {((milestoneComments[milestone.id]?.length || 0) + (milestoneCommunications[milestone.id]?.length || 0)) > 0 && (
                           <span className="inline-flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
                             <MessageSquare className="h-3 w-3" />
-                            {milestoneComments[milestone.id]?.length || 0}
+                            {(milestoneComments[milestone.id]?.length || 0) + (milestoneCommunications[milestone.id]?.length || 0)}
                           </span>
                         )}
                       </div>
@@ -561,9 +622,39 @@ export default function MilestoneList({ projectId, milestones, onUpdate }: Miles
                     <div>
                       <h4 className="text-sm font-medium text-gray-900 dark:text-white flex items-center gap-2 mb-2">
                         <MessageSquare className="h-4 w-4" />
-                        Notes & Comments ({milestoneComments[milestone.id]?.length || 0})
+                        Notes & Comments ({(milestoneComments[milestone.id]?.length || 0) + (milestoneCommunications[milestone.id]?.length || 0)})
                       </h4>
                       <div className="space-y-2 mb-3">
+                        {/* Show Communications first (calls, emails, notes from quick actions) */}
+                        {milestoneCommunications[milestone.id]?.map((comm) => (
+                          <div
+                            key={`comm-${comm.id}`}
+                            className="p-2 bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700"
+                          >
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium ${
+                                comm.type === 'CALL' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300' :
+                                comm.type === 'EMAIL' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300' :
+                                'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                              }`}>
+                                {comm.type}
+                              </span>
+                              {comm.direction && (
+                                <span className="text-xs text-gray-500 dark:text-gray-400">
+                                  {comm.direction}
+                                </span>
+                              )}
+                            </div>
+                            {comm.subject && (
+                              <p className="text-xs font-medium text-gray-900 dark:text-white mb-1">{comm.subject}</p>
+                            )}
+                            <p className="text-xs text-gray-900 dark:text-white whitespace-pre-wrap">{comm.content}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                              {comm.user.name || comm.user.email} • {new Date(comm.createdAt).toLocaleString()}
+                            </p>
+                          </div>
+                        ))}
+                        {/* Show MilestoneComments (notes added via Add button) */}
                         {milestoneComments[milestone.id]?.map((comment) => (
                           <div
                             key={comment.id}
@@ -610,8 +701,22 @@ export default function MilestoneList({ projectId, milestones, onUpdate }: Miles
                                     projectId,
                                     milestoneId: milestone.id,
                                   }),
-                                }).then((response) => {
+                                }).then(async (response) => {
                                   if (response.ok) {
+                                    // Refresh communications for this milestone
+                                    const commsResponse = await fetch(`/api/communications?projectId=${projectId}&milestoneId=${milestone.id}`)
+                                    if (commsResponse.ok) {
+                                      const commsData = await commsResponse.json()
+                                      setMilestoneCommunications(prev => ({ ...prev, [milestone.id]: (commsData.communications || []).map((comm: any) => ({
+                                        id: comm.id,
+                                        type: comm.type,
+                                        subject: comm.subject,
+                                        content: comm.content,
+                                        direction: comm.direction,
+                                        createdAt: comm.createdAt,
+                                        user: comm.user,
+                                      })) }))
+                                    }
                                     alert('Call recorded!')
                                     onUpdate()
                                   } else {
@@ -643,8 +748,22 @@ export default function MilestoneList({ projectId, milestones, onUpdate }: Miles
                                     projectId,
                                     milestoneId: milestone.id,
                                   }),
-                                }).then((response) => {
+                                }).then(async (response) => {
                                   if (response.ok) {
+                                    // Refresh communications for this milestone
+                                    const commsResponse = await fetch(`/api/communications?projectId=${projectId}&milestoneId=${milestone.id}`)
+                                    if (commsResponse.ok) {
+                                      const commsData = await commsResponse.json()
+                                      setMilestoneCommunications(prev => ({ ...prev, [milestone.id]: (commsData.communications || []).map((comm: any) => ({
+                                        id: comm.id,
+                                        type: comm.type,
+                                        subject: comm.subject,
+                                        content: comm.content,
+                                        direction: comm.direction,
+                                        createdAt: comm.createdAt,
+                                        user: comm.user,
+                                      })) }))
+                                    }
                                     alert('Email recorded!')
                                     onUpdate()
                                   } else {
@@ -672,8 +791,22 @@ export default function MilestoneList({ projectId, milestones, onUpdate }: Miles
                                     projectId,
                                     milestoneId: milestone.id,
                                   }),
-                                }).then((response) => {
+                                }).then(async (response) => {
                                   if (response.ok) {
+                                    // Refresh communications for this milestone
+                                    const commsResponse = await fetch(`/api/communications?projectId=${projectId}&milestoneId=${milestone.id}`)
+                                    if (commsResponse.ok) {
+                                      const commsData = await commsResponse.json()
+                                      setMilestoneCommunications(prev => ({ ...prev, [milestone.id]: (commsData.communications || []).map((comm: any) => ({
+                                        id: comm.id,
+                                        type: comm.type,
+                                        subject: comm.subject,
+                                        content: comm.content,
+                                        direction: comm.direction,
+                                        createdAt: comm.createdAt,
+                                        user: comm.user,
+                                      })) }))
+                                    }
                                     alert('Note recorded!')
                                     onUpdate()
                                   } else {

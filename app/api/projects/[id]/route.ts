@@ -94,6 +94,20 @@ export async function PATCH(
       return NextResponse.json({ error: 'Project not found' }, { status: 404 })
     }
 
+    // Track status change if status is being updated
+    if (body.status && body.status !== project.status) {
+      await prisma.statusChange.create({
+        data: {
+          entityType: 'PROJECT',
+          entityId: params.id,
+          oldStatus: project.status,
+          newStatus: body.status,
+          projectId: params.id,
+          userId: user.userId,
+        },
+      })
+    }
+
     const updatedProject = await prisma.project.update({
       where: { id: params.id },
       data: {

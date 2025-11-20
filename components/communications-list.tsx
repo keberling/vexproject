@@ -5,7 +5,13 @@ import { Communication } from '@prisma/client'
 import { Phone, Mail, Users, FileText, Plus, Trash2 } from 'lucide-react'
 import * as Dialog from '@radix-ui/react-dialog'
 
-interface CommunicationWithRelations extends Communication {
+interface CommunicationItem {
+  id: string
+  type: string
+  subject: string | null
+  content: string
+  direction: string | null
+  createdAt: Date | string
   user: {
     id: string
     name: string | null
@@ -15,6 +21,7 @@ interface CommunicationWithRelations extends Communication {
     id: string
     name: string
   } | null
+  source: 'communication' | 'milestone_comment'
 }
 
 interface CommunicationsListProps {
@@ -39,7 +46,7 @@ const communicationColors = {
 }
 
 export default function CommunicationsList({ projectId, milestones, onUpdate, refreshTrigger }: CommunicationsListProps) {
-  const [communications, setCommunications] = useState<CommunicationWithRelations[]>([])
+  const [communications, setCommunications] = useState<CommunicationItem[]>([])
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [fetching, setFetching] = useState(true)
@@ -52,25 +59,20 @@ export default function CommunicationsList({ projectId, milestones, onUpdate, re
   })
 
   useEffect(() => {
-    fetchCommunications()
+    fetchAllCommunications()
   }, [projectId, refreshTrigger])
 
-  const fetchCommunications = async () => {
+  const fetchAllCommunications = async () => {
     setFetching(true)
     try {
-      const response = await fetch(`/api/communications?projectId=${projectId}`)
+      const response = await fetch(`/api/projects/${projectId}/communications`)
       if (response.ok) {
         const data = await response.json()
-        const allComms = data.communications || []
-        const milestoneComms = allComms.filter((c: any) => c.milestoneId)
-        console.log('[CommunicationsList] Fetched:', allComms.length, 'total,', milestoneComms.length, 'milestone-related')
-        console.log('[CommunicationsList] Sample milestone comms:', milestoneComms.slice(0, 3).map((c: any) => ({
-          id: c.id,
-          type: c.type,
-          milestoneId: c.milestoneId,
-          milestone: c.milestone
-        })))
-        setCommunications(allComms)
+        const allItems = data.items || []
+        console.log('[CommunicationsList] Fetched:', allItems.length, 'total items (communications + milestone comments)')
+        const milestoneItems = allItems.filter((c: CommunicationItem) => c.milestone)
+        console.log('[CommunicationsList] Milestone items:', milestoneItems.length)
+        setCommunications(allItems)
       } else {
         const errorText = await response.text()
         console.error('[CommunicationsList] Failed to fetch:', response.status, response.statusText, errorText)
@@ -111,7 +113,7 @@ export default function CommunicationsList({ projectId, milestones, onUpdate, re
         direction: '',
         milestoneId: '',
       })
-      await fetchCommunications()
+      await fetchAllCommunications()
       onUpdate()
     } catch (error) {
       console.error('Error creating communication:', error)
@@ -121,30 +123,43 @@ export default function CommunicationsList({ projectId, milestones, onUpdate, re
     }
   }
 
-  const handleDelete = async (communicationId: string) => {
-    if (!confirm('Are you sure you want to delete this communication?')) {
+  const handleDelete = async (itemId: string, source: 'communication' | 'milestone_comment') => {
+    if (!confirm('Are you sure you want to delete this note?')) {
       return
     }
 
     try {
-      const response = await fetch(`/api/communications/${communicationId}`, {
-        method: 'DELETE',
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to delete communication')
+      let response
+      if (source === 'milestone_comment') {
+        // Delete milestone comment
+        const milestoneId = communications.find(c => c.id === itemId)?.milestone?.id
+        if (!milestoneId) {
+          throw new Error('Milestone not found')
+        }
+        response = await fetch(`/api/milestones/${milestoneId}/comments/${itemId}`, {
+          method: 'DELETE',
+        })
+      } else {
+        // Delete communication
+        response = await fetch(`/api/communications/${itemId}`, {
+          method: 'DELETE',
+        })
       }
 
-      fetchCommunications()
+      if (!response.ok) {
+        throw new Error('Failed to delete')
+      }
+
+      fetchAllCommunications()
       onUpdate()
     } catch (error) {
-      console.error('Error deleting communication:', error)
-      alert('Failed to delete communication')
+      console.error('Error deleting:', error)
+      alert('Failed to delete')
     }
   }
 
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col h-full">
       <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 flex-shrink-0">
         <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Communications & Notes</h2>
         <Dialog.Root open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -260,7 +275,7 @@ export default function CommunicationsList({ projectId, milestones, onUpdate, re
         </Dialog.Root>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-3">
+      <div className="flex-1 overflow-y-auto p-3" style={{ maxHeight: '300px' }}>
         {fetching ? (
           <p className="text-gray-500 dark:text-gray-400 text-center py-4 text-sm">Loading...</p>
         ) : communications.length === 0 ? (
@@ -287,13 +302,9 @@ export default function CommunicationsList({ projectId, milestones, onUpdate, re
                             {comm.direction}
                           </span>
                         )}
-                        {comm.milestoneId && comm.milestone ? (
+                        {comm.milestone ? (
                           <span className="text-xs font-medium text-blue-600 dark:text-blue-400">
                             Milestone: {comm.milestone.name}
-                          </span>
-                        ) : comm.milestoneId ? (
-                          <span className="text-xs font-medium text-blue-600 dark:text-blue-400">
-                            Milestone: (Unknown)
                           </span>
                         ) : (
                           <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
@@ -315,9 +326,9 @@ export default function CommunicationsList({ projectId, milestones, onUpdate, re
                     </div>
                   </div>
                   <button
-                    onClick={() => handleDelete(comm.id)}
+                    onClick={() => handleDelete(comm.id, comm.source)}
                     className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 flex-shrink-0 p-1"
-                    title="Delete communication"
+                    title="Delete note"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>

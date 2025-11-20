@@ -1,7 +1,8 @@
 import { redirect } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import ProjectCard from '@/components/project-card'
+import ProjectListItem from '@/components/project-list-item'
+import DashboardActivity from '@/components/dashboard-activity'
 import Link from 'next/link'
 
 export default async function DashboardPage() {
@@ -14,12 +15,39 @@ export default async function DashboardPage() {
   const projects = await prisma.project.findMany({
     where: { userId: user.userId },
     include: {
-      milestones: true,
+      milestones: {
+        include: {
+          _count: {
+            select: { comments: true },
+          },
+        },
+      },
       _count: {
-        select: { files: true, calendarEvents: true },
+        select: { 
+          files: true, 
+          calendarEvents: true,
+          communications: true,
+        },
       },
     },
     orderBy: { updatedAt: 'desc' },
+    take: 4, // Limit to 4 recent projects
+  })
+
+  // Calculate total notes count for each project (communications + milestone comments)
+  const projectsWithNotes = projects.map(project => {
+    const milestoneCommentsCount = project.milestones.reduce(
+      (sum, milestone) => sum + milestone._count.comments,
+      0
+    )
+    const totalNotes = project._count.communications + milestoneCommentsCount
+    return {
+      ...project,
+      _count: {
+        ...project._count,
+        totalNotes,
+      },
+    }
   })
 
   const stats = {
@@ -116,18 +144,32 @@ export default async function DashboardPage() {
       </div>
 
       <div className="mt-8">
-        <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Recent Projects</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-medium text-gray-900 dark:text-white">Recent Projects</h2>
+          {projects.length > 0 && (
+            <Link
+              href="/dashboard/projects"
+              className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+            >
+              View all →
+            </Link>
+          )}
+        </div>
         {projects.length === 0 ? (
-          <div className="text-center py-12">
+          <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
             <p className="text-gray-500 dark:text-gray-400">No projects yet. Create your first project to get started.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {projects.map((project) => (
-              <ProjectCard key={project.id} project={project} />
+          <div className="space-y-3">
+            {projectsWithNotes.map((project) => (
+              <ProjectListItem key={project.id} project={project} />
             ))}
           </div>
         )}
+      </div>
+
+      <div className="mt-8">
+        <DashboardActivity />
       </div>
     </div>
   )

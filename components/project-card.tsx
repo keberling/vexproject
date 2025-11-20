@@ -40,6 +40,7 @@ interface ProjectCardProps {
     _count: {
       files: number
       calendarEvents: number
+      totalNotes?: number
     }
   }
 }
@@ -208,6 +209,9 @@ export default function ProjectCard({ project }: ProjectCardProps) {
             <div className="mt-4 flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
               <span>{project._count.files} files</span>
               <span>{project._count.calendarEvents} events</span>
+              {project._count.totalNotes !== undefined && (
+                <span>{project._count.totalNotes} notes</span>
+              )}
             </div>
           </div>
         </Link>

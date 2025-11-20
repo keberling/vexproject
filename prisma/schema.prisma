@@ -21,6 +21,7 @@ model User {
   calendarEvents CalendarEvent[]
   milestoneComments MilestoneComment[]
   communications Communication[]
+  statusChanges StatusChange[]
 }
 
 model Project {
@@ -43,6 +44,7 @@ model Project {
   files         ProjectFile[]
   calendarEvents CalendarEvent[]
   communications Communication[]
+  statusChanges StatusChange[]
 }
 
 // ProjectStatus enum values (stored as strings in SQLite):
@@ -65,6 +67,7 @@ model Milestone {
   files         ProjectFile[]
   comments      MilestoneComment[]
   communications Communication[]
+  statusChanges StatusChange[]
 }
 
 // MilestoneStatus enum values (stored as strings in SQLite):
@@ -144,6 +147,21 @@ model Communication {
   direction     String?         // 'INBOUND', 'OUTBOUND' (for calls/emails)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
+  projectId     String
+  project       Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  milestoneId   String?
+  milestone     Milestone? @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model StatusChange {
+  id            String    @id @default(cuid())
+  entityType    String          // 'PROJECT' or 'MILESTONE'
+  entityId      String
+  oldStatus     String?
+  newStatus     String
+  createdAt     DateTime  @default(now())
   projectId     String
   project       Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
   milestoneId   String?

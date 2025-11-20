@@ -14,12 +14,38 @@ export default async function ProjectsPage() {
   const projects = await prisma.project.findMany({
     where: { userId: user.userId },
     include: {
-      milestones: true,
+      milestones: {
+        include: {
+          _count: {
+            select: { comments: true },
+          },
+        },
+      },
       _count: {
-        select: { files: true, calendarEvents: true },
+        select: { 
+          files: true, 
+          calendarEvents: true,
+          communications: true,
+        },
       },
     },
     orderBy: { updatedAt: 'desc' },
+  })
+
+  // Calculate total notes count for each project (communications + milestone comments)
+  const projectsWithNotes = projects.map(project => {
+    const milestoneCommentsCount = project.milestones.reduce(
+      (sum, milestone) => sum + milestone._count.comments,
+      0
+    )
+    const totalNotes = project._count.communications + milestoneCommentsCount
+    return {
+      ...project,
+      _count: {
+        ...project._count,
+        totalNotes,
+      },
+    }
   })
 
   return (
@@ -54,7 +80,7 @@ export default async function ProjectsPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {projects.map((project) => (
+            {projectsWithNotes.map((project) => (
               <ProjectCard key={project.id} project={project} />
             ))}
           </div>

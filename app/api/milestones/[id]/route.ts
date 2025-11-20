@@ -25,6 +25,21 @@ export async function PATCH(
       return NextResponse.json({ error: 'Milestone not found' }, { status: 404 })
     }
 
+    // Track status change if status is being updated
+    if (body.status && body.status !== milestone.status) {
+      await prisma.statusChange.create({
+        data: {
+          entityType: 'MILESTONE',
+          entityId: params.id,
+          oldStatus: milestone.status,
+          newStatus: body.status,
+          projectId: milestone.projectId,
+          milestoneId: params.id,
+          userId: user.userId,
+        },
+      })
+    }
+
     const updatedMilestone = await prisma.milestone.update({
       where: { id: params.id },
       data: {
