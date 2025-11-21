@@ -8,7 +8,6 @@ interface ProjectInventorySelectorProps {
   projectId: string
   jobType: string | null
   jobTypeId?: string | null
-  milestoneId?: string
   onAssign?: () => void
 }
 
@@ -16,7 +15,6 @@ export default function ProjectInventorySelector({
   projectId,
   jobType,
   jobTypeId,
-  milestoneId,
   onAssign,
 }: ProjectInventorySelectorProps) {
   const [inventoryItems, setInventoryItems] = useState<any[]>([])
@@ -111,20 +109,42 @@ export default function ProjectInventorySelector({
     }
   }
 
-  const handleApplyPackage = async (packageId: string) => {
-    if (!milestoneId) {
-      alert('Please select a milestone first')
+  const handleSelectPackage = async (packageId: string) => {
+    setSelectedPackage(packageId)
+    
+    // Fetch package details and prefill quantities
+    try {
+      const response = await fetch(`/api/inventory/packages/${packageId}`)
+      if (response.ok) {
+        const data = await response.json()
+        const packageData = data.package
+        
+        // Prefill quantities from package (but don't assign yet)
+        const prefilledQuantities: Record<string, number> = {}
+        packageData.items?.forEach((item: any) => {
+          prefilledQuantities[item.inventoryItemId] = item.quantity
+        })
+        setQuantities(prefilledQuantities)
+      }
+    } catch (error) {
+      console.error('Error fetching package:', error)
+    }
+  }
+
+  const handleApplyPackage = async () => {
+    if (!selectedPackage) {
+      alert('Please select a package first')
       return
     }
 
     setApplyingPackage(true)
     try {
-      const response = await fetch(`/api/inventory/packages/${packageId}/apply`, {
+      const response = await fetch(`/api/inventory/packages/${selectedPackage}/apply`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ milestoneId }),
+        body: JSON.stringify({ projectId }),
       })
 
       if (!response.ok) {
@@ -153,11 +173,6 @@ export default function ProjectInventorySelector({
   }
 
   const handleAssignAll = async () => {
-    if (!milestoneId) {
-      alert('Please select a milestone first')
-      return
-    }
-
     const itemsToAssign = inventoryItems.filter(
       (item) => quantities[item.id] > 0
     )
@@ -177,7 +192,7 @@ export default function ProjectInventorySelector({
           },
           body: JSON.stringify({
             inventoryItemId: item.id,
-            milestoneId,
+            projectId,
             quantity: quantities[item.id],
           }),
         })
@@ -269,19 +284,27 @@ export default function ProjectInventorySelector({
                     {pkg.items.length} item{pkg.items.length !== 1 ? 's' : ''}
                   </p>
                 </div>
-                {milestoneId ? (
+                <div className="ml-3 flex items-center gap-2">
                   <button
-                    onClick={() => handleApplyPackage(pkg.id)}
-                    disabled={applyingPackage}
-                    className="ml-3 px-3 py-1.5 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 disabled:opacity-50"
+                    onClick={() => handleSelectPackage(pkg.id)}
+                    className={`px-3 py-1.5 text-xs rounded ${
+                      selectedPackage === pkg.id
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                    }`}
                   >
-                    {applyingPackage ? 'Applying...' : 'Apply Package'}
+                    {selectedPackage === pkg.id ? 'Selected' : 'Select'}
                   </button>
-                ) : (
-                  <span className="ml-3 text-xs text-gray-500 dark:text-gray-400">
-                    Select milestone
-                  </span>
-                )}
+                  {selectedPackage === pkg.id && (
+                    <button
+                      onClick={handleApplyPackage}
+                      disabled={applyingPackage}
+                      className="px-3 py-1.5 bg-green-600 text-white text-xs rounded hover:bg-green-700 disabled:opacity-50"
+                    >
+                      {applyingPackage ? 'Applying...' : 'Apply'}
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
           </div>
@@ -293,9 +316,8 @@ export default function ProjectInventorySelector({
         <h4 className="text-sm font-medium text-gray-900 dark:text-white">
           Manual Inventory Selection
         </h4>
-        {milestoneId && (
-          <button
-            onClick={handleAssignAll}
+        <button
+          onClick={handleAssignAll}
             disabled={loading}
             className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:opacity-50"
           >
@@ -361,48 +383,36 @@ export default function ProjectInventorySelector({
                   </span>
                 </div>
 
-                {milestoneId ? (
-                  <div className="flex items-center gap-2 mt-3">
-                    <label className="text-xs text-gray-600 dark:text-gray-400 flex-1">
-                      {item.trackSerialNumbers ? 'Select units:' : 'Quantity to assign:'}
-                    </label>
-                    {!item.trackSerialNumbers && (
-                      <>
-                        <input
-                          type="number"
-                          min="0"
-                          max={item.available}
-                          value={quantities[item.id] || 0}
-                          onChange={(e) =>
-                            handleQuantityChange(item.id, parseInt(e.target.value) || 0)
-                          }
-                          className="w-20 px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                        />
-                        <span className="text-xs text-gray-500 dark:text-gray-400">
-                          {item.unit}
-                        </span>
-                      </>
-                    )}
-                    {item.trackSerialNumbers && (
-                      <button
-                        onClick={() => setAssigningItem(item)}
-                        className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
-                      >
-                        Select Units
-                      </button>
-                    )}
-                  </div>
-                ) : (
-                  <div className="mt-2">
+                <div className="flex items-center gap-2 mt-3">
+                  <label className="text-xs text-gray-600 dark:text-gray-400 flex-1">
+                    {item.trackSerialNumbers ? 'Select units:' : 'Quantity to assign:'}
+                  </label>
+                  {!item.trackSerialNumbers && (
+                    <>
+                      <input
+                        type="number"
+                        min="0"
+                        max={item.available}
+                        value={quantities[item.id] || 0}
+                        onChange={(e) =>
+                          handleQuantityChange(item.id, parseInt(e.target.value) || 0)
+                        }
+                        className="w-20 px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      />
+                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                        {item.unit}
+                      </span>
+                    </>
+                  )}
+                  {item.trackSerialNumbers && (
                     <button
                       onClick={() => setAssigningItem(item)}
-                      className="w-full flex items-center justify-center gap-2 px-3 py-1.5 text-sm bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded hover:bg-blue-100 dark:hover:bg-blue-900/30"
+                      className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
                     >
-                      <Plus className="h-4 w-4" />
-                      Assign to Milestone
+                      Select Units
                     </button>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
 
               {/* Units List */}

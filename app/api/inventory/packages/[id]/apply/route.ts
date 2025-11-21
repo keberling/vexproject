@@ -15,11 +15,11 @@ export async function POST(
     }
 
     const body = await request.json()
-    const { milestoneId } = body
+    const { projectId } = body
 
-    if (!milestoneId) {
+    if (!projectId) {
       return NextResponse.json(
-        { error: 'Milestone ID is required' },
+        { error: 'Project ID is required' },
         { status: 400 }
       )
     }
@@ -40,13 +40,13 @@ export async function POST(
       return NextResponse.json({ error: 'Package not found' }, { status: 404 })
     }
 
-    // Verify milestone exists
-    const milestone = await prisma.milestone.findUnique({
-      where: { id: milestoneId },
+    // Verify project exists
+    const project = await prisma.project.findUnique({
+      where: { id: projectId },
     })
 
-    if (!milestone) {
-      return NextResponse.json({ error: 'Milestone not found' }, { status: 404 })
+    if (!project) {
+      return NextResponse.json({ error: 'Project not found' }, { status: 404 })
     }
 
     // Create assignments for each item in package
@@ -87,7 +87,7 @@ export async function POST(
             data: {
               inventoryItemId: item.id,
               inventoryUnitId: unit.id,
-              milestoneId,
+              projectId,
               quantity: 1,
               status: 'ASSIGNED',
             },
@@ -128,7 +128,7 @@ export async function POST(
         const assignment = await prisma.inventoryAssignment.create({
           data: {
             inventoryItemId: item.id,
-            milestoneId,
+            projectId,
             quantity: packageItem.quantity,
             status: 'ASSIGNED',
           },

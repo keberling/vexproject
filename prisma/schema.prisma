@@ -58,6 +58,7 @@ model Project {
   calendarEvents CalendarEvent[]
   communications Communication[]
   statusChanges StatusChange[]
+  inventoryAssignments InventoryAssignment[]
 }
 
 // ProjectStatus enum values (stored as strings in SQLite):
@@ -86,7 +87,6 @@ model Milestone {
   communications Communication[]
   statusChanges StatusChange[]
   tasks         Task[]
-  inventoryAssignments InventoryAssignment[]
 }
 
 // MilestoneStatus enum values (stored as strings in SQLite):
@@ -346,7 +346,7 @@ model InventoryUnit {
 
 model InventoryAssignment {
   id            String    @id @default(cuid())
-  quantity      Int       // Quantity assigned to this milestone (for bulk items without serial numbers)
+  quantity      Int       // Quantity assigned to this project (for bulk items without serial numbers)
   status        String    @default("ASSIGNED") // ASSIGNED, USED, RETURNED
   assignedAt    DateTime  @default(now())
   usedAt        DateTime? // When the inventory was actually used
@@ -358,8 +358,10 @@ model InventoryAssignment {
   inventoryItem InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Cascade)
   inventoryUnitId String? @unique // If assigned by serial number, reference the unit (unique for one-to-one relation)
   inventoryUnit InventoryUnit? @relation(fields: [inventoryUnitId], references: [id], onDelete: SetNull)
-  milestoneId   String
-  milestone     Milestone @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
+  projectId     String
+  project       Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  milestoneId   String?   // Optional - for backward compatibility, but inventory is now project-based
+  milestone     Milestone? @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
 }
 
 // InventoryAssignmentStatus enum values (stored as strings in SQLite):

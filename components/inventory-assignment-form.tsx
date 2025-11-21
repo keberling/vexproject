@@ -5,21 +5,17 @@ import { X, Save, Package } from 'lucide-react'
 
 interface InventoryAssignmentFormProps {
   inventoryItem?: any
-  milestoneId?: string
-  projectId?: string
+  projectId: string
   onClose: () => void
   onSave: () => void
 }
 
 export default function InventoryAssignmentForm({
   inventoryItem,
-  milestoneId,
   projectId,
   onClose,
   onSave,
 }: InventoryAssignmentFormProps) {
-  const [milestones, setMilestones] = useState<any[]>([])
-  const [selectedMilestoneId, setSelectedMilestoneId] = useState(milestoneId || '')
   const [quantity, setQuantity] = useState(1)
   const [notes, setNotes] = useState('')
   const [loading, setLoading] = useState(false)
@@ -30,26 +26,10 @@ export default function InventoryAssignmentForm({
   const [itemDetails, setItemDetails] = useState<any>(null)
 
   useEffect(() => {
-    if (projectId) {
-      fetchMilestones()
-    }
     if (inventoryItem) {
       fetchAvailableQuantity()
     }
-  }, [projectId, inventoryItem])
-
-  const fetchMilestones = async () => {
-    if (!projectId) return
-    try {
-      const response = await fetch(`/api/projects/${projectId}`)
-      if (response.ok) {
-        const data = await response.json()
-        setMilestones(data.project.milestones || [])
-      }
-    } catch (error) {
-      console.error('Error fetching milestones:', error)
-    }
-  }
+  }, [inventoryItem])
 
   const fetchAvailableQuantity = async () => {
     if (!inventoryItem) return
@@ -80,8 +60,8 @@ export default function InventoryAssignmentForm({
     setLoading(true)
     setError('')
 
-    if (!selectedMilestoneId) {
-      setError('Please select a milestone')
+    if (!projectId) {
+      setError('Project ID is required')
       setLoading(false)
       return
     }
@@ -106,7 +86,7 @@ export default function InventoryAssignmentForm({
               body: JSON.stringify({
                 inventoryItemId: inventoryItem.id,
                 inventoryUnitId: unitId,
-                milestoneId: selectedMilestoneId,
+                projectId,
                 notes: notes || null,
               }),
             })
@@ -147,7 +127,7 @@ export default function InventoryAssignmentForm({
           },
           body: JSON.stringify({
             inventoryItemId: inventoryItem.id,
-            milestoneId: selectedMilestoneId,
+            projectId,
             quantity,
             notes: notes || null,
           }),
@@ -206,26 +186,6 @@ export default function InventoryAssignmentForm({
             </div>
           </div>
 
-          {projectId && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Milestone *
-              </label>
-              <select
-                required
-                value={selectedMilestoneId}
-                onChange={(e) => setSelectedMilestoneId(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-              >
-                <option value="">Select a milestone</option>
-                {milestones.map((milestone) => (
-                  <option key={milestone.id} value={milestone.id}>
-                    {milestone.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
 
           {itemDetails?.trackSerialNumbers ? (
             <div>

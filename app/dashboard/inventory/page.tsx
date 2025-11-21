@@ -7,6 +7,7 @@ import JobTypeManager from '@/components/job-type-manager'
 import InventoryPackageManager from '@/components/inventory-package-manager'
 import InventoryUnitForm from '@/components/inventory-unit-form'
 import AssignItemToPackage from '@/components/assign-item-to-package'
+import AssignUnitToProject from '@/components/assign-unit-to-project'
 
 export default function InventoryPage() {
   const [jobTypes, setJobTypes] = useState<any[]>([])
@@ -18,8 +19,10 @@ export default function InventoryPage() {
   const [showPackageManager, setShowPackageManager] = useState(false)
   const [showUnitForm, setShowUnitForm] = useState(false)
   const [showAssignToPackage, setShowAssignToPackage] = useState(false)
+  const [showAssignUnitToProject, setShowAssignUnitToProject] = useState(false)
   const [unitFormItem, setUnitFormItem] = useState<any>(null)
   const [assignToPackageItem, setAssignToPackageItem] = useState<any>(null)
+  const [assignUnitToProjectUnit, setAssignUnitToProjectUnit] = useState<any>(null)
   const [packageManagerJobTypeId, setPackageManagerJobTypeId] = useState<string | null>(null)
   const [editingItem, setEditingItem] = useState<any>(null)
   const [selectedJobTypeId, setSelectedJobTypeId] = useState<string | null>(null)
@@ -434,17 +437,31 @@ export default function InventoryPage() {
                                             </span>
                                           )}
                                         </div>
-                                        <span
-                                          className={`text-xs px-1.5 py-0.5 rounded ${
-                                            unit.status === 'AVAILABLE'
-                                              ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300'
-                                              : unit.status === 'ASSIGNED'
-                                              ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300'
-                                              : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
-                                          }`}
-                                        >
-                                          {unit.status}
-                                        </span>
+                                        <div className="flex items-center gap-2">
+                                          {unit.status === 'AVAILABLE' && (
+                                            <button
+                                              onClick={() => {
+                                                setAssignUnitToProjectUnit(unit)
+                                                setShowAssignUnitToProject(true)
+                                              }}
+                                              className="px-2 py-0.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
+                                              title="Assign to Project"
+                                            >
+                                              Assign
+                                            </button>
+                                          )}
+                                          <span
+                                            className={`text-xs px-1.5 py-0.5 rounded ${
+                                              unit.status === 'AVAILABLE'
+                                                ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300'
+                                                : unit.status === 'ASSIGNED'
+                                                ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300'
+                                                : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+                                            }`}
+                                          >
+                                            {unit.status}
+                                          </span>
+                                        </div>
                                       </li>
                                     ))}
                                   </ul>
@@ -586,6 +603,23 @@ export default function InventoryPage() {
           inventoryItem={assignToPackageItem}
           onClose={handleAssignToPackageClose}
           onSave={handleAssignToPackageClose}
+        />
+      )}
+
+      {/* Assign Unit to Project Modal */}
+      {showAssignUnitToProject && assignUnitToProjectUnit && (
+        <AssignUnitToProject
+          unit={assignUnitToProjectUnit}
+          onClose={() => {
+            setShowAssignUnitToProject(false)
+            setAssignUnitToProjectUnit(null)
+            fetchItems()
+          }}
+          onSave={() => {
+            setShowAssignUnitToProject(false)
+            setAssignUnitToProjectUnit(null)
+            fetchItems()
+          }}
         />
       )}
     </div>

@@ -19,6 +19,13 @@ export async function GET(
       },
       include: {
         jobType: true,
+        inventoryAssignments: {
+          include: {
+            inventoryItem: true,
+            inventoryUnit: true,
+          },
+          orderBy: { assignedAt: 'desc' },
+        },
         milestones: {
           orderBy: { createdAt: 'asc' },
           include: {
@@ -36,13 +43,6 @@ export async function GET(
                 },
               },
               orderBy: { createdAt: 'desc' },
-            },
-            inventoryAssignments: {
-              include: {
-                inventoryItem: true,
-                inventoryUnit: true,
-              },
-              orderBy: { assignedAt: 'desc' },
             },
           },
         },

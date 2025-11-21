@@ -12,11 +12,15 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url)
+    const projectId = searchParams.get('projectId')
     const milestoneId = searchParams.get('milestoneId')
     const inventoryItemId = searchParams.get('inventoryItemId')
     const status = searchParams.get('status')
 
     const where: any = {}
+    if (projectId) {
+      where.projectId = projectId
+    }
     if (milestoneId) {
       where.milestoneId = milestoneId
     }
@@ -31,14 +35,17 @@ export async function GET(request: NextRequest) {
       where,
       include: {
         inventoryItem: true,
+        inventoryUnit: true,
+        project: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
         milestone: {
-          include: {
-            project: {
-              select: {
-                id: true,
-                name: true,
-              },
-            },
+          select: {
+            id: true,
+            name: true,
           },
         },
       },
@@ -65,22 +72,22 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { inventoryItemId, inventoryUnitId, milestoneId, quantity, notes } = body
+    const { inventoryItemId, inventoryUnitId, projectId, milestoneId, quantity, notes } = body
 
-    if (!inventoryItemId || !milestoneId) {
+    if (!inventoryItemId || !projectId) {
       return NextResponse.json(
-        { error: 'Inventory item ID and milestone ID are required' },
+        { error: 'Inventory item ID and project ID are required' },
         { status: 400 }
       )
     }
 
-    // Verify milestone exists
-    const milestone = await prisma.milestone.findUnique({
-      where: { id: milestoneId },
+    // Verify project exists
+    const project = await prisma.project.findUnique({
+      where: { id: projectId },
     })
 
-    if (!milestone) {
-      return NextResponse.json({ error: 'Milestone not found' }, { status: 404 })
+    if (!project) {
+      return NextResponse.json({ error: 'Project not found' }, { status: 404 })
     }
 
     // Get inventory item
@@ -122,7 +129,8 @@ export async function POST(request: NextRequest) {
         data: {
           inventoryItemId,
           inventoryUnitId,
-          milestoneId,
+          projectId,
+          milestoneId: milestoneId || null,
           quantity: 1,
           notes: notes || null,
           status: 'ASSIGNED',
@@ -130,14 +138,16 @@ export async function POST(request: NextRequest) {
         include: {
           inventoryItem: true,
           inventoryUnit: true,
+          project: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
           milestone: {
-            include: {
-              project: {
-                select: {
-                  id: true,
-                  name: true,
-                },
-              },
+            select: {
+              id: true,
+              name: true,
             },
           },
         },
@@ -196,21 +206,24 @@ export async function POST(request: NextRequest) {
     const assignment = await prisma.inventoryAssignment.create({
       data: {
         inventoryItemId,
-        milestoneId,
+        projectId,
+        milestoneId: milestoneId || null,
         quantity,
         notes: notes || null,
         status: 'ASSIGNED',
       },
       include: {
         inventoryItem: true,
+        project: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
         milestone: {
-          include: {
-            project: {
-              select: {
-                id: true,
-                name: true,
-              },
-            },
+          select: {
+            id: true,
+            name: true,
           },
         },
       },
