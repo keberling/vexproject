@@ -139,6 +139,9 @@ export async function POST(request: NextRequest) {
               projectId: project.id,
               status: 'PENDING',
             },
+            include: {
+              tasks: true,
+            },
           })
         }
 
