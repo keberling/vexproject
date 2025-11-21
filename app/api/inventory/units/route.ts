@@ -71,29 +71,25 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (!assetTag || !assetTag.trim()) {
-      return NextResponse.json(
-        { error: 'assetTag is required' },
-        { status: 400 }
-      )
-    }
+    // Asset tag is optional - will be assigned when printing QR code
+    // If provided, check if it already exists (globally unique)
+    if (assetTag && assetTag.trim()) {
+      const existing = await prisma.inventoryUnit.findUnique({
+        where: { assetTag: assetTag.trim() },
+      })
 
-    // Check if asset tag already exists (globally unique)
-    const existing = await prisma.inventoryUnit.findUnique({
-      where: { assetTag: assetTag.trim() },
-    })
-
-    if (existing) {
-      return NextResponse.json(
-        { error: 'Asset tag already exists' },
-        { status: 400 }
-      )
+      if (existing) {
+        return NextResponse.json(
+          { error: 'Asset tag already exists' },
+          { status: 400 }
+        )
+      }
     }
 
     const unit = await prisma.inventoryUnit.create({
       data: {
         inventoryItemId,
-        assetTag: assetTag.trim(),
+        assetTag: assetTag && assetTag.trim() ? assetTag.trim() : null,
         serialNumber: serialNumber || null,
         notes: notes || null,
         status: 'AVAILABLE',

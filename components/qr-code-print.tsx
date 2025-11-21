@@ -51,6 +51,10 @@ export default function QRCodePrint({ unit, settings, onClose }: QRCodePrintProp
         if (response.ok) {
           const data = await response.json()
           setQrCodeDataUrl(data.qrCode)
+          // Update unit with newly assigned asset tag if it was just created
+          if (data.unit && data.unit.assetTag) {
+            unit.assetTag = data.unit.assetTag
+          }
         } else {
           setError('Failed to generate QR code')
         }

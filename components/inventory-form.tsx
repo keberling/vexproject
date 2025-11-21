@@ -19,7 +19,7 @@ export default function InventoryForm({ item, defaultJobTypeId, onClose, onSave 
     sku: '',
     category: '',
     jobTypeId: '',
-    trackSerialNumbers: false,
+    trackSerialNumbers: true, // Always enabled
     quantity: 0,
     threshold: 0,
     unit: 'each',
@@ -65,7 +65,7 @@ export default function InventoryForm({ item, defaultJobTypeId, onClose, onSave 
         sku: item.sku || '',
         category: item.category || '',
         jobTypeId: item.jobTypeId || item.jobType?.id || '',
-        trackSerialNumbers: item.trackSerialNumbers || false,
+        trackSerialNumbers: true, // Always enabled
         quantity: qty,
         threshold: item.threshold || 0,
         unit: item.unit || 'each',
@@ -81,8 +81,8 @@ export default function InventoryForm({ item, defaultJobTypeId, onClose, onSave 
         notes: item.notes || '',
       })
       setOriginalQuantity(qty)
-      // Fetch assigned units if tracking serial numbers
-      if (item.trackSerialNumbers && item.id) {
+      // Fetch assigned units
+      if (item.id) {
         fetchAssignedUnits(item.id)
       }
     } else if (defaultJobTypeId) {
@@ -134,8 +134,8 @@ export default function InventoryForm({ item, defaultJobTypeId, onClose, onSave 
 
     const newQuantity = parseInt(formData.quantity.toString()) || 0
 
-    // Check if we're reducing quantity for a serial-tracked item with assigned units
-    if (item && item.trackSerialNumbers && newQuantity < originalQuantity && assignedUnits.length > 0) {
+    // Check if we're reducing quantity for an item with assigned units
+    if (item && newQuantity < originalQuantity && assignedUnits.length > 0) {
       const unitsToRemove = originalQuantity - newQuantity
       if (unitsToRemove > 0 && unitsToRemove <= assignedUnits.length) {
         setShowSerialSelector(true)
@@ -375,22 +375,6 @@ export default function InventoryForm({ item, defaultJobTypeId, onClose, onSave 
                 </p>
               </div>
 
-              <div>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={formData.trackSerialNumbers}
-                    onChange={(e) => setFormData({ ...formData, trackSerialNumbers: e.target.checked })}
-                    className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-                  />
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Track Serial Numbers
-                  </span>
-                </label>
-                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400 ml-6">
-                  Enable this to track individual units with serial numbers. Each unit can be assigned separately to projects.
-                </p>
-              </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">

@@ -61,16 +61,15 @@ export default function ProjectInventorySelector({
         // Fetch units for items that track serial numbers
         const unitsMap: Record<string, any[]> = {}
         for (const item of data.items || []) {
-          if (item.trackSerialNumbers) {
-            try {
-              const unitsResponse = await fetch(`/api/inventory/units?inventoryItemId=${item.id}`)
-              if (unitsResponse.ok) {
-                const unitsData = await unitsResponse.json()
-                unitsMap[item.id] = unitsData.units || []
-              }
-            } catch (error) {
-              console.error(`Error fetching units for item ${item.id}:`, error)
+          // Always fetch units (tracking is always enabled)
+          try {
+            const unitsResponse = await fetch(`/api/inventory/units?inventoryItemId=${item.id}`)
+            if (unitsResponse.ok) {
+              const unitsData = await unitsResponse.json()
+              unitsMap[item.id] = unitsData.units || []
             }
+          } catch (error) {
+            console.error(`Error fetching units for item ${item.id}:`, error)
           }
         }
         setItemUnits(unitsMap)
@@ -483,7 +482,7 @@ export default function ProjectInventorySelector({
         {inventoryItems.map((item) => {
           const isItemExpanded = expandedItems.has(item.id)
           const units = itemUnits[item.id] || []
-          const hasUnits = item.trackSerialNumbers && units.length > 0
+          const hasUnits = units.length > 0
           const availableUnits = units.filter((u) => u.status === 'AVAILABLE')
 
           return (
@@ -531,15 +530,15 @@ export default function ProjectInventorySelector({
                         : 'font-medium text-gray-900 dark:text-white'
                     }
                   >
-                    {item.trackSerialNumbers ? `${availableUnits.length} unit${availableUnits.length !== 1 ? 's' : ''}` : `${item.available} ${item.unit}`}
+                    {hasUnits ? `${availableUnits.length} unit${availableUnits.length !== 1 ? 's' : ''}` : `${item.available} ${item.unit}`}
                   </span>
                 </div>
 
                 <div className="flex items-center gap-2 mt-3">
                   <label className="text-xs text-gray-600 dark:text-gray-400 flex-1">
-                    {item.trackSerialNumbers ? 'Select units:' : 'Quantity to assign:'}
+                    {hasUnits ? 'Select units:' : 'Quantity to assign:'}
                   </label>
-                  {!item.trackSerialNumbers && (
+                  {!hasUnits && (
                     <>
                       <input
                         type="number"
@@ -556,7 +555,7 @@ export default function ProjectInventorySelector({
                       </span>
                     </>
                   )}
-                  {item.trackSerialNumbers && (
+                  {hasUnits && (
                     <button
                       onClick={() => setAssigningItem(item)}
                       className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"

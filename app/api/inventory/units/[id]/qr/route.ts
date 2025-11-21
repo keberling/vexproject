@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentUser } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import * as QRCode from 'qrcode'
+import QRCode from 'qrcode'
 
 // GET - Generate QR code for an inventory unit
 export async function GET(
@@ -15,7 +15,7 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const unit = await prisma.inventoryUnit.findUnique({
+    let unit = await prisma.inventoryUnit.findUnique({
       where: { id: params.id },
       include: {
         inventoryItem: true,
@@ -24,6 +24,33 @@ export async function GET(
 
     if (!unit) {
       return NextResponse.json({ error: 'Unit not found' }, { status: 404 })
+    }
+
+    // If unit doesn't have an asset tag, generate and assign one
+    if (!unit.assetTag) {
+      const timestamp = Date.now().toString(36).toUpperCase()
+      const itemPrefix = (unit.inventoryItem.sku || unit.inventoryItem.name)
+        .substring(0, 3)
+        .toUpperCase()
+        .replace(/[^A-Z0-9]/g, '') || 'INV'
+      const generatedTag = `${itemPrefix}-${timestamp}-${unit.id.slice(-6).toUpperCase()}`
+
+      // Ensure uniqueness
+      let assetTag = generatedTag
+      let counter = 1
+      while (await prisma.inventoryUnit.findUnique({ where: { assetTag } })) {
+        assetTag = `${generatedTag}-${counter}`
+        counter++
+      }
+
+      // Update unit with asset tag
+      unit = await prisma.inventoryUnit.update({
+        where: { id: params.id },
+        data: { assetTag },
+        include: {
+          inventoryItem: true,
+        },
+      })
     }
 
     // Generate QR code URL that links to the inventory item/unit

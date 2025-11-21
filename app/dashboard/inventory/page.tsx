@@ -59,19 +59,17 @@ export default function InventoryPage() {
         const data = await response.json()
         setItems(data.items || [])
         
-        // Fetch units for items that track serial numbers
+        // Fetch units for all items (tracking is always enabled)
         const unitsMap: Record<string, any[]> = {}
         for (const item of data.items || []) {
-          if (item.trackSerialNumbers) {
-            try {
-              const unitsResponse = await fetch(`/api/inventory/units?inventoryItemId=${item.id}`)
-              if (unitsResponse.ok) {
-                const unitsData = await unitsResponse.json()
-                unitsMap[item.id] = unitsData.units || []
-              }
-            } catch (error) {
-              console.error(`Error fetching units for item ${item.id}:`, error)
+          try {
+            const unitsResponse = await fetch(`/api/inventory/units?inventoryItemId=${item.id}`)
+            if (unitsResponse.ok) {
+              const unitsData = await unitsResponse.json()
+              unitsMap[item.id] = unitsData.units || []
             }
+          } catch (error) {
+            console.error(`Error fetching units for item ${item.id}:`, error)
           }
         }
         setItemUnits(unitsMap)
@@ -406,7 +404,7 @@ export default function InventoryPage() {
                       {filterItems(itemsByJobType['unassigned'] || []).map((item) => {
                         const isItemExpanded = expandedItems.has(item.id)
                         const units = itemUnits[item.id] || []
-                        const hasUnits = item.trackSerialNumbers && units.length > 0
+                        const hasUnits = units.length > 0
 
                         return (
                           <div
@@ -532,10 +530,11 @@ export default function InventoryPage() {
                                             })
                                             setShowQRPrint(true)
                                           }}
-                                          className="px-2 py-0.5 text-xs bg-purple-600 text-white rounded hover:bg-purple-700"
+                                          className="px-2 py-0.5 text-xs bg-purple-600 text-white rounded hover:bg-purple-700 flex items-center gap-1"
                                           title="Print QR Code Label"
                                         >
-                                          <QrCode className="h-3 w-3 inline" />
+                                          <QrCode className="h-3 w-3" />
+                                          Print QR
                                         </button>
                                         {unit.status === 'AVAILABLE' && (
                                           <button
@@ -547,6 +546,31 @@ export default function InventoryPage() {
                                             title="Assign to Project"
                                           >
                                             Assign
+                                          </button>
+                                        )}
+                                        {unit.status === 'ASSIGNED' && unit.assignment && (
+                                          <button
+                                            onClick={async () => {
+                                              if (confirm('Are you sure you want to unassign this unit from the project?')) {
+                                                try {
+                                                  const response = await fetch(`/api/inventory/assignments/${unit.assignment.id}`, {
+                                                    method: 'DELETE',
+                                                  })
+                                                  if (response.ok) {
+                                                    fetchData()
+                                                  } else {
+                                                    alert('Failed to unassign unit')
+                                                  }
+                                                } catch (error) {
+                                                  console.error('Error unassigning unit:', error)
+                                                  alert('Error unassigning unit')
+                                                }
+                                              }
+                                            }}
+                                            className="px-2 py-0.5 text-xs bg-red-600 text-white rounded hover:bg-red-700"
+                                            title="Unassign from Project"
+                                          >
+                                            Unassign
                                           </button>
                                         )}
                                         <span
@@ -631,7 +655,7 @@ export default function InventoryPage() {
                         {jobTypeItems.map((item) => {
                           const isItemExpanded = expandedItems.has(item.id)
                           const units = itemUnits[item.id] || []
-                          const hasUnits = item.trackSerialNumbers && units.length > 0
+                          const hasUnits = units.length > 0
 
                           return (
                             <div
@@ -743,6 +767,26 @@ export default function InventoryPage() {
                                           )}
                                         </div>
                                         <div className="flex items-center gap-2">
+                                          <button
+                                            onClick={() => {
+                                              setQrPrintUnit({
+                                                id: unit.id,
+                                                assetTag: unit.assetTag,
+                                                serialNumber: unit.serialNumber,
+                                                inventoryItem: {
+                                                  id: item.id,
+                                                  name: item.name,
+                                                  sku: item.sku,
+                                                },
+                                              })
+                                              setShowQRPrint(true)
+                                            }}
+                                            className="px-2 py-0.5 text-xs bg-purple-600 text-white rounded hover:bg-purple-700 flex items-center gap-1"
+                                            title="Print QR Code Label"
+                                          >
+                                            <QrCode className="h-3 w-3" />
+                                            Print QR
+                                          </button>
                                           {unit.status === 'AVAILABLE' && (
                                             <button
                                               onClick={() => {
@@ -753,6 +797,31 @@ export default function InventoryPage() {
                                               title="Assign to Project"
                                             >
                                               Assign
+                                            </button>
+                                          )}
+                                          {unit.status === 'ASSIGNED' && unit.assignment && (
+                                            <button
+                                              onClick={async () => {
+                                                if (confirm('Are you sure you want to unassign this unit from the project?')) {
+                                                  try {
+                                                    const response = await fetch(`/api/inventory/assignments/${unit.assignment.id}`, {
+                                                      method: 'DELETE',
+                                                    })
+                                                    if (response.ok) {
+                                                      fetchData()
+                                                    } else {
+                                                      alert('Failed to unassign unit')
+                                                    }
+                                                  } catch (error) {
+                                                    console.error('Error unassigning unit:', error)
+                                                    alert('Error unassigning unit')
+                                                  }
+                                                }
+                                              }}
+                                              className="px-2 py-0.5 text-xs bg-red-600 text-white rounded hover:bg-red-700"
+                                              title="Unassign from Project"
+                                            >
+                                              Unassign
                                             </button>
                                           )}
                                           <span
