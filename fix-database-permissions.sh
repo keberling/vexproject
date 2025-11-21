@@ -48,10 +48,30 @@ echo ""
 echo -e "${BLUE}Setting permissions...${NC}"
 chmod 755 "$INSTALL_DIR/prisma"
 if [ -f "$INSTALL_DIR/prisma/dev.db" ]; then
+    # Remove read-only flag if it exists
+    chmod u+w "$INSTALL_DIR/prisma/dev.db" 2>/dev/null || true
     chmod 664 "$INSTALL_DIR/prisma/dev.db"
     echo -e "${GREEN}✓ Database file permissions set${NC}"
+    
+    # Check if database is actually writable
+    if [ ! -w "$INSTALL_DIR/prisma/dev.db" ]; then
+        echo -e "${RED}Error: Database file is still not writable${NC}"
+        echo "Trying to fix with sudo..."
+        sudo chmod 664 "$INSTALL_DIR/prisma/dev.db"
+        sudo chown $USER:$USER "$INSTALL_DIR/prisma/dev.db"
+    fi
 else
     echo -e "${YELLOW}⚠ Database file doesn't exist yet${NC}"
+fi
+
+# Also fix any lock files
+if [ -f "$INSTALL_DIR/prisma/dev.db-wal" ]; then
+    sudo chown $USER:$USER "$INSTALL_DIR/prisma/dev.db-wal" 2>/dev/null || true
+    chmod 664 "$INSTALL_DIR/prisma/dev.db-wal" 2>/dev/null || true
+fi
+if [ -f "$INSTALL_DIR/prisma/dev.db-shm" ]; then
+    sudo chown $USER:$USER "$INSTALL_DIR/prisma/dev.db-shm" 2>/dev/null || true
+    chmod 664 "$INSTALL_DIR/prisma/dev.db-shm" 2>/dev/null || true
 fi
 
 # Initialize database if it doesn't exist
