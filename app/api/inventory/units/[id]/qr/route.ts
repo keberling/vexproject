@@ -28,18 +28,37 @@ export async function GET(
 
     // If unit doesn't have an asset tag, generate and assign one
     if (!unit.assetTag) {
-      const timestamp = Date.now().toString(36).toUpperCase()
-      const itemPrefix = (unit.inventoryItem.sku || unit.inventoryItem.name)
+      // Format: VEX-{location}-{distributor}-{number}
+      // Truncate location and distributor to 3 chars
+      const location = (unit.inventoryItem.location || 'LOC')
         .substring(0, 3)
         .toUpperCase()
-        .replace(/[^A-Z0-9]/g, '') || 'INV'
-      const generatedTag = `${itemPrefix}-${timestamp}-${unit.id.slice(-6).toUpperCase()}`
+        .replace(/[^A-Z0-9]/g, '')
+        .padEnd(3, 'X') || 'LOC'
+      
+      const distributor = (unit.inventoryItem.distributor || 'DIST')
+        .substring(0, 3)
+        .toUpperCase()
+        .replace(/[^A-Z0-9]/g, '')
+        .padEnd(3, 'X') || 'DIST'
+      
+      // Generate sequential number based on existing units for this item
+      const existingUnits = await prisma.inventoryUnit.count({
+        where: {
+          inventoryItemId: unit.inventoryItemId,
+          assetTag: { not: null },
+        },
+      })
+      
+      const number = String(existingUnits + 1).padStart(4, '0')
+      const generatedTag = `VEX-${location}-${distributor}-${number}`
 
       // Ensure uniqueness
       let assetTag = generatedTag
       let counter = 1
       while (await prisma.inventoryUnit.findUnique({ where: { assetTag } })) {
-        assetTag = `${generatedTag}-${counter}`
+        const newNumber = String(existingUnits + 1 + counter).padStart(4, '0')
+        assetTag = `VEX-${location}-${distributor}-${newNumber}`
         counter++
       }
 

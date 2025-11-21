@@ -567,10 +567,36 @@ export default function InventoryPage() {
                                                 }
                                               }
                                             }}
-                                            className="px-2 py-0.5 text-xs bg-red-600 text-white rounded hover:bg-red-700"
+                                            className="px-2 py-0.5 text-xs bg-orange-600 text-white rounded hover:bg-orange-700"
                                             title="Unassign from Project"
                                           >
                                             Unassign
+                                          </button>
+                                        )}
+                                        {unit.status === 'AVAILABLE' && (
+                                          <button
+                                            onClick={async () => {
+                                              if (confirm('Are you sure you want to delete this unit? This cannot be undone.')) {
+                                                try {
+                                                  const response = await fetch(`/api/inventory/units/${unit.id}`, {
+                                                    method: 'DELETE',
+                                                  })
+                                                  if (response.ok) {
+                                                    fetchItems()
+                                                  } else {
+                                                    const data = await response.json()
+                                                    alert(data.error || 'Failed to delete unit')
+                                                  }
+                                                } catch (error) {
+                                                  console.error('Error deleting unit:', error)
+                                                  alert('Error deleting unit')
+                                                }
+                                              }
+                                            }}
+                                            className="px-2 py-0.5 text-xs bg-red-600 text-white rounded hover:bg-red-700"
+                                            title="Delete Unit"
+                                          >
+                                            Delete
                                           </button>
                                         )}
                                         <span
@@ -818,10 +844,36 @@ export default function InventoryPage() {
                                                   }
                                                 }
                                               }}
-                                              className="px-2 py-0.5 text-xs bg-red-600 text-white rounded hover:bg-red-700"
+                                              className="px-2 py-0.5 text-xs bg-orange-600 text-white rounded hover:bg-orange-700"
                                               title="Unassign from Project"
                                             >
                                               Unassign
+                                            </button>
+                                          )}
+                                          {unit.status === 'AVAILABLE' && (
+                                            <button
+                                              onClick={async () => {
+                                                if (confirm('Are you sure you want to delete this unit? This cannot be undone.')) {
+                                                  try {
+                                                    const response = await fetch(`/api/inventory/units/${unit.id}`, {
+                                                      method: 'DELETE',
+                                                    })
+                                                    if (response.ok) {
+                                                      fetchItems()
+                                                    } else {
+                                                      const data = await response.json()
+                                                      alert(data.error || 'Failed to delete unit')
+                                                    }
+                                                  } catch (error) {
+                                                    console.error('Error deleting unit:', error)
+                                                    alert('Error deleting unit')
+                                                  }
+                                                }
+                                              }}
+                                              className="px-2 py-0.5 text-xs bg-red-600 text-white rounded hover:bg-red-700"
+                                              title="Delete Unit"
+                                            >
+                                              Delete
                                             </button>
                                           )}
                                           <span
