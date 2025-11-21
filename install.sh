@@ -152,6 +152,32 @@ else
     echo -e "${YELLOW}Warning: Failed to generate Prisma client${NC}"
 fi
 
+# Ensure prisma directory exists and has proper permissions
+echo ""
+echo -e "${BLUE}Setting up database directory...${NC}"
+mkdir -p "$INSTALL_DIR/prisma"
+chmod 755 "$INSTALL_DIR/prisma"
+echo -e "${GREEN}✓ Database directory ready${NC}"
+
+# Initialize database if it doesn't exist
+if [ ! -f "$INSTALL_DIR/prisma/dev.db" ]; then
+    echo ""
+    echo -e "${BLUE}Initializing database...${NC}"
+    if npm run db:push; then
+        echo -e "${GREEN}✓ Database initialized${NC}"
+    else
+        echo -e "${YELLOW}Warning: Database initialization failed. You may need to run 'npm run db:push' manually.${NC}"
+    fi
+else
+    echo -e "${GREEN}✓ Database file already exists${NC}"
+fi
+
+# Ensure database file has proper permissions
+if [ -f "$INSTALL_DIR/prisma/dev.db" ]; then
+    chmod 664 "$INSTALL_DIR/prisma/dev.db"
+    echo -e "${GREEN}✓ Database file permissions set${NC}"
+fi
+
 # Check for .env file
 echo ""
 if [ ! -f ".env" ]; then
