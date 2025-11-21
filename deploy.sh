@@ -1,6 +1,7 @@
 #!/bin/bash
 
 # VEX Project Management - Deployment Script
+# Repository: https://github.com/keberling/vexproject.git
 # Updates code from git, rebuilds application, and restarts service
 # Preserves database - does NOT run db:push or db:seed
 # Can be run from home directory - will auto-detect app location
@@ -20,15 +21,8 @@ echo "==========================================${NC}"
 echo ""
 
 # Try to find the application directory
-# Check common locations
-POSSIBLE_DIRS=(
-    "/opt/VEXProjects"
-    "/home/$USER/vexproject"
-    "/home/$USER/VEXProjects"
-    "$HOME/vexproject"
-    "$HOME/VEXProjects"
-    "$(pwd)"
-)
+# Check /opt/vexproject first (primary installation location)
+INSTALL_DIR="/opt/vexproject"
 
 APP_DIR=""
 
@@ -36,8 +30,20 @@ APP_DIR=""
 if [ -f "$(pwd)/package.json" ]; then
     APP_DIR=$(pwd)
     echo -e "${GREEN}✓ Found application in current directory: $APP_DIR${NC}"
+# Check primary installation location
+elif [ -f "$INSTALL_DIR/package.json" ]; then
+    APP_DIR="$INSTALL_DIR"
+    echo -e "${GREEN}✓ Found application at: $APP_DIR${NC}"
 else
-    # Try to find it in common locations
+    # Try other common locations as fallback
+    POSSIBLE_DIRS=(
+        "/opt/VEXProjects"
+        "/home/$USER/vexproject"
+        "/home/$USER/VEXProjects"
+        "$HOME/vexproject"
+        "$HOME/VEXProjects"
+    )
+    
     for dir in "${POSSIBLE_DIRS[@]}"; do
         if [ -f "$dir/package.json" ]; then
             APP_DIR="$dir"
@@ -47,14 +53,38 @@ else
     done
 fi
 
-# If still not found, ask user
+# If still not found, offer to install
 if [ -z "$APP_DIR" ] || [ ! -f "$APP_DIR/package.json" ]; then
-    echo -e "${YELLOW}Could not auto-detect application directory.${NC}"
-    echo "Please enter the full path to your application directory:"
-    read -p "Path: " APP_DIR
-    
-    if [ ! -f "$APP_DIR/package.json" ]; then
-        echo -e "${RED}Error: package.json not found at $APP_DIR${NC}"
+    echo -e "${YELLOW}Application not found at $INSTALL_DIR${NC}"
+    echo ""
+    echo "The application should be installed at: $INSTALL_DIR"
+    echo ""
+    read -p "Would you like to install it now? (y/n) " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        # Find install.sh script
+        INSTALL_SCRIPT=""
+        if [ -f "$(pwd)/install.sh" ]; then
+            INSTALL_SCRIPT="$(pwd)/install.sh"
+        elif [ -f "./install.sh" ]; then
+            INSTALL_SCRIPT="./install.sh"
+        elif [ -f "$INSTALL_DIR/install.sh" ]; then
+            INSTALL_SCRIPT="$INSTALL_DIR/install.sh"
+        else
+            echo -e "${YELLOW}install.sh not found.${NC}"
+            echo "Please run the install script from the repository, or manually install:"
+            echo "  git clone https://github.com/keberling/vexproject.git $INSTALL_DIR"
+            echo "  cd $INSTALL_DIR && ./install.sh"
+            exit 1
+        fi
+        
+        echo "Running installation script..."
+        bash "$INSTALL_SCRIPT"
+        APP_DIR="$INSTALL_DIR"
+    else
+        echo -e "${YELLOW}Please install the application first:${NC}"
+        echo "  Run: ./install.sh"
+        echo "  Or manually: git clone https://github.com/keberling/vexproject.git $INSTALL_DIR"
         exit 1
     fi
 fi
@@ -103,16 +133,37 @@ echo ""
 
 # Step 1: Pull latest code
 echo -e "${BLUE}[1/5] Pulling latest code from git...${NC}"
-if git pull; then
-    echo -e "${GREEN}✓ Code updated${NC}"
-else
-    echo -e "${YELLOW}Warning: Failed to pull code from git${NC}"
-    echo -e "${YELLOW}This may be normal if not using git or if there are local changes.${NC}"
-    read -p "Continue anyway? (y/n) " -n 1 -r
-    echo
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        exit 1
+
+# Check if this is a git repository
+if [ -d ".git" ]; then
+    # Check if remote is configured
+    GIT_REMOTE=$(git remote get-url origin 2>/dev/null || echo "")
+    if [ -n "$GIT_REMOTE" ]; then
+        echo -e "${BLUE}Repository: $GIT_REMOTE${NC}"
     fi
+    
+    # Try to pull
+    if git pull origin main 2>/dev/null || git pull origin master 2>/dev/null || git pull 2>/dev/null; then
+        echo -e "${GREEN}✓ Code updated from git${NC}"
+    else
+        echo -e "${YELLOW}Warning: Failed to pull code from git${NC}"
+        echo -e "${YELLOW}This may be normal if there are local changes or merge conflicts.${NC}"
+        echo -e "${YELLOW}You may need to resolve conflicts manually or stash changes.${NC}"
+        read -p "Continue anyway? (y/n) " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            exit 1
+        fi
+    fi
+else
+    echo -e "${YELLOW}⚠ Not a git repository (no .git directory found)${NC}"
+    echo -e "${YELLOW}Skipping git pull.${NC}"
+    echo ""
+    echo "To set up git repository, run:"
+    echo "  git init"
+    echo "  git remote add origin https://github.com/keberling/vexproject.git"
+    echo "  git pull origin main"
+    echo ""
 fi
 echo ""
 

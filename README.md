@@ -2,6 +2,8 @@
 
 A professional project management system for tracking low voltage installations across the US.
 
+**Repository**: https://github.com/keberling/vexproject.git
+
 ## Features
 
 - **Project Management**: Track projects with customizable milestones and statuses
@@ -22,6 +24,36 @@ A professional project management system for tracking low voltage installations 
 - npm or yarn
 
 ### Installation
+
+**One-Command Complete Setup:**
+
+The `install.sh` script does everything - clones the repo, installs dependencies, builds the app, and sets up the systemd service. Run it from anywhere:
+
+```bash
+# Download and run the install script
+curl -O https://raw.githubusercontent.com/keberling/vexproject/main/install.sh
+chmod +x install.sh
+./install.sh
+```
+
+**Or if you have the repo:**
+
+```bash
+git clone https://github.com/keberling/vexproject.git
+cd vexproject
+chmod +x install.sh
+./install.sh
+```
+
+The install script will:
+- ✅ Clone repository to `/opt/vexproject`
+- ✅ Install all dependencies
+- ✅ Generate Prisma client
+- ✅ Build the application
+- ✅ Set up systemd service
+- ✅ Optionally start the service
+
+**Manual Installation:**
 
 1. Install dependencies:
 ```bash
@@ -89,14 +121,21 @@ See `PRODUCTION_DEPLOYMENT.md` for detailed production deployment instructions.
 
 ### Running as a Service on Ubuntu
 
-To run the application as a systemd service on Ubuntu (automatically starts on boot):
+The `install.sh` script automatically sets up the systemd service! Just run:
 
-1. **Quick setup** (recommended):
-   ```bash
-   ./setup-service.sh
-   ```
+```bash
+./install.sh
+```
 
-2. **Manual setup**: See `UBUNTU_SERVICE_SETUP.md` for detailed instructions.
+This will:
+- Install the application to `/opt/vexproject`
+- Set up the systemd service
+- Enable the service to start on boot
+- Optionally start the service immediately
+
+**Manual setup**: See `UBUNTU_SERVICE_SETUP.md` for detailed instructions if you prefer to set up manually.
+
+**Note**: The application installs to `/opt/vexproject` by default. All scripts automatically detect this location.
 
 The setup includes:
 - Automatic startup on boot

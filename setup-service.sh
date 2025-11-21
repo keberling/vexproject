@@ -22,10 +22,37 @@ if [ "$EUID" -eq 0 ]; then
    exit 1
 fi
 
-# Get current directory
-APP_DIR=$(pwd)
+# Installation directory (primary location)
+INSTALL_DIR="/opt/vexproject"
 USER=$(whoami)
 HOME_DIR=$(eval echo ~$USER)
+
+# Determine application directory
+APP_DIR=""
+
+# Check if we're in the app directory
+if [ -f "$(pwd)/package.json" ]; then
+    APP_DIR=$(pwd)
+    echo -e "${GREEN}✓ Found application in current directory: $APP_DIR${NC}"
+# Check primary installation location
+elif [ -f "$INSTALL_DIR/package.json" ]; then
+    APP_DIR="$INSTALL_DIR"
+    echo -e "${GREEN}✓ Found application at: $APP_DIR${NC}"
+    echo -e "${BLUE}Using installation directory: $APP_DIR${NC}"
+else
+    echo -e "${YELLOW}Application not found in current directory or at $INSTALL_DIR${NC}"
+    echo ""
+    echo "Please either:"
+    echo "  1. Run this script from the application directory, or"
+    echo "  2. Install the application first: ./install.sh"
+    echo ""
+    read -p "Enter the full path to the application directory: " APP_DIR
+    
+    if [ ! -f "$APP_DIR/package.json" ]; then
+        echo -e "${RED}Error: package.json not found at $APP_DIR${NC}"
+        exit 1
+    fi
+fi
 
 echo "Application directory: $APP_DIR"
 echo "User: $USER"
@@ -51,13 +78,6 @@ fi
 
 NPM_VERSION=$(npm --version)
 echo -e "${GREEN}✓ npm found: $NPM_VERSION${NC}"
-
-# Check if package.json exists
-if [ ! -f "$APP_DIR/package.json" ]; then
-    echo -e "${RED}Error: package.json not found in current directory.${NC}"
-    echo "Please run this script from the application root directory."
-    exit 1
-fi
 
 echo -e "${GREEN}✓ Application found${NC}"
 echo ""
