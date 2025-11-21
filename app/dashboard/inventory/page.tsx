@@ -548,12 +548,30 @@ export default function InventoryPage() {
                                             Assign
                                           </button>
                                         )}
-                                        {unit.status === 'ASSIGNED' && unit.assignment && (
+                                        {unit.status === 'ASSIGNED' && (
                                           <button
                                             onClick={async () => {
                                               if (confirm('Are you sure you want to unassign this unit from the project?')) {
                                                 try {
-                                                  const response = await fetch(`/api/inventory/assignments/${unit.assignment.id}`, {
+                                                  // Find the assignment for this unit
+                                                  let assignmentId = unit.assignment?.id
+                                                  
+                                                  // If assignment not loaded, fetch it
+                                                  if (!assignmentId) {
+                                                    const assignmentResponse = await fetch(`/api/inventory/assignments?inventoryItemId=${item.id}`)
+                                                    if (assignmentResponse.ok) {
+                                                      const assignmentData = await assignmentResponse.json()
+                                                      const assignment = assignmentData.assignments?.find((a: any) => a.inventoryUnitId === unit.id)
+                                                      assignmentId = assignment?.id
+                                                    }
+                                                  }
+                                                  
+                                                  if (!assignmentId) {
+                                                    alert('Could not find assignment for this unit')
+                                                    return
+                                                  }
+                                                  
+                                                  const response = await fetch(`/api/inventory/assignments/${assignmentId}`, {
                                                     method: 'DELETE',
                                                   })
                                                   if (response.ok) {
@@ -825,12 +843,30 @@ export default function InventoryPage() {
                                               Assign
                                             </button>
                                           )}
-                                          {unit.status === 'ASSIGNED' && unit.assignment && (
+                                          {unit.status === 'ASSIGNED' && (
                                             <button
                                               onClick={async () => {
                                                 if (confirm('Are you sure you want to unassign this unit from the project?')) {
                                                   try {
-                                                    const response = await fetch(`/api/inventory/assignments/${unit.assignment.id}`, {
+                                                    // Find the assignment for this unit
+                                                    let assignmentId = unit.assignment?.id
+                                                    
+                                                    // If assignment not loaded, fetch it
+                                                    if (!assignmentId) {
+                                                      const assignmentResponse = await fetch(`/api/inventory/assignments?inventoryItemId=${item.id}`)
+                                                      if (assignmentResponse.ok) {
+                                                        const assignmentData = await assignmentResponse.json()
+                                                        const assignment = assignmentData.assignments?.find((a: any) => a.inventoryUnitId === unit.id)
+                                                        assignmentId = assignment?.id
+                                                      }
+                                                    }
+                                                    
+                                                    if (!assignmentId) {
+                                                      alert('Could not find assignment for this unit')
+                                                      return
+                                                    }
+                                                    
+                                                    const response = await fetch(`/api/inventory/assignments/${assignmentId}`, {
                                                       method: 'DELETE',
                                                     })
                                                     if (response.ok) {
