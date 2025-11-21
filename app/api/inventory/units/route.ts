@@ -42,6 +42,43 @@ export async function GET(request: NextRequest) {
       ],
     })
 
+    // Clean up orphaned ASSIGNED units (units with ASSIGNED status but no assignment record)
+    const orphanedUnits = units.filter((unit) => unit.status === 'ASSIGNED' && !unit.assignment)
+    if (orphanedUnits.length > 0) {
+      await prisma.inventoryUnit.updateMany({
+        where: {
+          id: { in: orphanedUnits.map((u) => u.id) },
+        },
+        data: {
+          status: 'AVAILABLE',
+        },
+      })
+      
+      // Re-fetch units after cleanup
+      const cleanedUnits = await prisma.inventoryUnit.findMany({
+        where: { inventoryItemId },
+        include: {
+          assignment: {
+            include: {
+              project: {
+                select: {
+                  id: true,
+                  name: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: [
+          { status: 'asc' },
+          { assetTag: 'asc' },
+          { createdAt: 'asc' },
+        ],
+      })
+      
+      return NextResponse.json({ units: cleanedUnits })
+    }
+
     return NextResponse.json({ units })
   } catch (error) {
     console.error('Error fetching inventory units:', error)

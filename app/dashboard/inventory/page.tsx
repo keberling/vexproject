@@ -566,8 +566,21 @@ export default function InventoryPage() {
                                                     }
                                                   }
                                                   
+                                                  // If no assignment found, just reset the unit status to AVAILABLE
                                                   if (!assignmentId) {
-                                                    alert('Could not find assignment for this unit')
+                                                    // Reset unit status directly
+                                                    const resetResponse = await fetch(`/api/inventory/units/${unit.id}`, {
+                                                      method: 'PUT',
+                                                      headers: {
+                                                        'Content-Type': 'application/json',
+                                                      },
+                                                      body: JSON.stringify({ status: 'AVAILABLE' }),
+                                                    })
+                                                    if (resetResponse.ok) {
+                                                      fetchItems()
+                                                    } else {
+                                                      alert('Failed to reset unit status')
+                                                    }
                                                     return
                                                   }
                                                   

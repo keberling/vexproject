@@ -54,9 +54,15 @@ export async function POST(
     for (const packageItem of packageData.items) {
       const item = packageItem.inventoryItem
 
-      // Check availability
-      if (item.trackSerialNumbers) {
-        // For serial number items, check available units
+      // Check if item has units (tracking is always enabled)
+      const unitCount = await prisma.inventoryUnit.count({
+        where: {
+          inventoryItemId: item.id,
+        },
+      })
+
+      if (unitCount > 0) {
+        // For items with units, check available units
         const availableUnits = await prisma.inventoryUnit.count({
           where: {
             inventoryItemId: item.id,
