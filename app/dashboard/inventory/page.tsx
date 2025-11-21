@@ -557,7 +557,7 @@ export default function InventoryPage() {
                                                     method: 'DELETE',
                                                   })
                                                   if (response.ok) {
-                                                    fetchData()
+                                                    fetchItems()
                                                   } else {
                                                     alert('Failed to unassign unit')
                                                   }
@@ -808,7 +808,7 @@ export default function InventoryPage() {
                                                       method: 'DELETE',
                                                     })
                                                     if (response.ok) {
-                                                      fetchData()
+                                                      fetchItems()
                                                     } else {
                                                       alert('Failed to unassign unit')
                                                     }
