@@ -24,12 +24,15 @@ export default function NewProjectForm() {
   const [error, setError] = useState('')
   const [templates, setTemplates] = useState<Template[]>([])
   const [jobTypes, setJobTypes] = useState<any[]>([])
+  const [packages, setPackages] = useState<any[]>([])
   const [loadingTemplates, setLoadingTemplates] = useState(true)
+  const [loadingPackages, setLoadingPackages] = useState(false)
   const [formData, setFormData] = useState({
     name: '',
     address: '',
     description: '',
     jobTypeId: '',
+    packageId: '',
     gcContactName: '',
     gcContactEmail: '',
     cdsContactName: '',
@@ -70,6 +73,39 @@ export default function NewProjectForm() {
 
     fetchData()
   }, [])
+
+  // Fetch packages when job type changes
+  useEffect(() => {
+    const fetchPackages = async () => {
+      if (!formData.jobTypeId) {
+        setPackages([])
+        setFormData(prev => ({ ...prev, packageId: '' }))
+        return
+      }
+
+      setLoadingPackages(true)
+      try {
+        const response = await fetch(`/api/inventory/packages?jobTypeId=${formData.jobTypeId}`)
+        if (response.ok) {
+          const data = await response.json()
+          setPackages(data.packages || [])
+          // Auto-select default package if available
+          const defaultPackage = data.packages?.find((p: any) => p.isDefault)
+          if (defaultPackage) {
+            setFormData(prev => ({ ...prev, packageId: defaultPackage.id }))
+          } else {
+            setFormData(prev => ({ ...prev, packageId: '' }))
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching packages:', error)
+      } finally {
+        setLoadingPackages(false)
+      }
+    }
+
+    fetchPackages()
+  }, [formData.jobTypeId])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -198,7 +234,7 @@ export default function NewProjectForm() {
 
       <div>
         <label htmlFor="jobTypeId" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-          Job Type
+          Job Type (Inventory Group)
         </label>
         <select
           name="jobTypeId"
@@ -218,6 +254,36 @@ export default function NewProjectForm() {
           Selecting a job type will automatically show relevant inventory items and packages for this project
         </p>
       </div>
+
+      {formData.jobTypeId && (
+        <div>
+          <label htmlFor="packageId" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+            Inventory Package
+          </label>
+          {loadingPackages ? (
+            <div className="mt-1 text-sm text-gray-500 dark:text-gray-400">Loading packages...</div>
+          ) : (
+            <select
+              name="packageId"
+              id="packageId"
+              value={formData.packageId}
+              onChange={handleChange}
+              className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2"
+            >
+              <option value="">No package (assign manually later)</option>
+              {packages.map((pkg) => (
+                <option key={pkg.id} value={pkg.id}>
+                  {pkg.name} {pkg.isDefault && '(Default)'}
+                  {pkg.description && ` - ${pkg.description}`}
+                </option>
+              ))}
+            </select>
+          )}
+          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            Select a package to automatically assign inventory items to the project's inventory milestone
+          </p>
+        </div>
+      )}
 
       <div>
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">

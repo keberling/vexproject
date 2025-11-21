@@ -1,10 +1,12 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Package, Plus, AlertTriangle, Search, Edit2, Trash2, Settings } from 'lucide-react'
+import { Package, Plus, AlertTriangle, Search, Edit2, Trash2, Settings, Box } from 'lucide-react'
 import InventoryForm from '@/components/inventory-form'
 import JobTypeManager from '@/components/job-type-manager'
 import InventoryPackageManager from '@/components/inventory-package-manager'
+import InventoryUnitForm from '@/components/inventory-unit-form'
+import AssignItemToPackage from '@/components/assign-item-to-package'
 
 export default function InventoryPage() {
   const [jobTypes, setJobTypes] = useState<any[]>([])
@@ -14,11 +16,17 @@ export default function InventoryPage() {
   const [showForm, setShowForm] = useState(false)
   const [showJobTypeManager, setShowJobTypeManager] = useState(false)
   const [showPackageManager, setShowPackageManager] = useState(false)
+  const [showUnitForm, setShowUnitForm] = useState(false)
+  const [showAssignToPackage, setShowAssignToPackage] = useState(false)
+  const [unitFormItem, setUnitFormItem] = useState<any>(null)
+  const [assignToPackageItem, setAssignToPackageItem] = useState<any>(null)
   const [packageManagerJobTypeId, setPackageManagerJobTypeId] = useState<string | null>(null)
   const [editingItem, setEditingItem] = useState<any>(null)
   const [selectedJobTypeId, setSelectedJobTypeId] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [expandedJobTypes, setExpandedJobTypes] = useState<Set<string>>(new Set())
+  const [itemUnits, setItemUnits] = useState<Record<string, any[]>>({})
+  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set())
 
   const fetchJobTypes = async () => {
     try {
@@ -41,6 +49,23 @@ export default function InventoryPage() {
       if (response.ok) {
         const data = await response.json()
         setItems(data.items || [])
+        
+        // Fetch units for items that track serial numbers
+        const unitsMap: Record<string, any[]> = {}
+        for (const item of data.items || []) {
+          if (item.trackSerialNumbers) {
+            try {
+              const unitsResponse = await fetch(`/api/inventory/units?inventoryItemId=${item.id}`)
+              if (unitsResponse.ok) {
+                const unitsData = await unitsResponse.json()
+                unitsMap[item.id] = unitsData.units || []
+              }
+            } catch (error) {
+              console.error(`Error fetching units for item ${item.id}:`, error)
+            }
+          }
+        }
+        setItemUnits(unitsMap)
       }
     } catch (error) {
       console.error('Error fetching inventory:', error)
@@ -86,6 +111,41 @@ export default function InventoryPage() {
     fetchItems()
     fetchJobTypes()
     fetchLowStock()
+  }
+
+  const handleAddUnits = (item: any) => {
+    setUnitFormItem(item)
+    setShowUnitForm(true)
+  }
+
+  const handleUnitFormClose = () => {
+    setShowUnitForm(false)
+    setUnitFormItem(null)
+    fetchItems()
+  }
+
+  const handleAssignToPackage = (item: any) => {
+    setAssignToPackageItem(item)
+    setShowAssignToPackage(true)
+  }
+
+  const handleAssignToPackageClose = () => {
+    setShowAssignToPackage(false)
+    setAssignToPackageItem(null)
+    // Refresh to show updated package data
+    fetchItems()
+  }
+
+  const toggleItem = (itemId: string) => {
+    setExpandedItems((prev) => {
+      const next = new Set(prev)
+      if (next.has(itemId)) {
+        next.delete(itemId)
+      } else {
+        next.add(itemId)
+      }
+      return next
+    })
   }
 
   const handleDelete = async (id: string) => {
@@ -260,59 +320,139 @@ export default function InventoryPage() {
                   {isExpanded && (
                     <div className="p-2">
                       <div className="grid grid-cols-1 gap-1">
-                        {jobTypeItems.map((item) => (
-                          <div
-                            key={item.id}
-                            className={`flex items-center justify-between p-2 rounded text-xs hover:bg-gray-50 dark:hover:bg-gray-700 ${
-                              item.isLowStock ? 'bg-red-50 dark:bg-red-900/10' : ''
-                            }`}
-                          >
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2">
-                                <span className="font-medium text-gray-900 dark:text-white truncate">
-                                  {item.name}
-                                </span>
-                                {item.isLowStock && (
-                                  <AlertTriangle className="h-3 w-3 text-red-600 dark:text-red-400 flex-shrink-0" />
-                                )}
-                                {item.sku && (
-                                  <span className="text-gray-500 dark:text-gray-400">
-                                    ({item.sku})
-                                  </span>
-                                )}
+                        {jobTypeItems.map((item) => {
+                          const isItemExpanded = expandedItems.has(item.id)
+                          const units = itemUnits[item.id] || []
+                          const hasUnits = item.trackSerialNumbers && units.length > 0
+
+                          return (
+                            <div
+                              key={item.id}
+                              className={`rounded text-xs ${
+                                item.isLowStock ? 'bg-red-50 dark:bg-red-900/10' : ''
+                              }`}
+                            >
+                              <div className="flex items-center justify-between p-2 hover:bg-gray-50 dark:hover:bg-gray-700">
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    {hasUnits && (
+                                      <button
+                                        onClick={() => toggleItem(item.id)}
+                                        className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                                      >
+                                        <span className="text-xs">{isItemExpanded ? '▼' : '▶'}</span>
+                                      </button>
+                                    )}
+                                    <span className="font-medium text-gray-900 dark:text-white truncate">
+                                      {item.name}
+                                    </span>
+                                    {item.isLowStock && (
+                                      <AlertTriangle className="h-3 w-3 text-red-600 dark:text-red-400 flex-shrink-0" />
+                                    )}
+                                    {item.sku && (
+                                      <span className="text-gray-500 dark:text-gray-400">
+                                        ({item.sku})
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-3 mt-0.5 text-gray-600 dark:text-gray-400">
+                                    <span>
+                                      Qty: {item.quantity} {item.unit}
+                                    </span>
+                                    <span className={item.isLowStock ? 'text-red-600 dark:text-red-400 font-medium' : ''}>
+                                      Available: {item.available} {item.unit}
+                                    </span>
+                                    {item.threshold > 0 && (
+                                      <span className="text-gray-500 dark:text-gray-400">
+                                        Threshold: {item.threshold}
+                                      </span>
+                                    )}
+                                    {item.trackSerialNumbers && (
+                                      <span className="text-gray-500 dark:text-gray-400">
+                                        {units.length} unit{units.length !== 1 ? 's' : ''}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-1 ml-2">
+                                  {item.jobTypeId && (
+                                    <button
+                                      onClick={() => handleAssignToPackage(item)}
+                                      className="p-1 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded"
+                                      title="Assign to Package"
+                                    >
+                                      <Box className="h-3 w-3" />
+                                    </button>
+                                  )}
+                                  {item.trackSerialNumbers && (
+                                    <button
+                                      onClick={() => handleAddUnits(item)}
+                                      className="p-1 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 rounded"
+                                      title="Add Units"
+                                    >
+                                      <Plus className="h-3 w-3" />
+                                    </button>
+                                  )}
+                                  <button
+                                    onClick={() => handleEdit(item)}
+                                    className="p-1 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded"
+                                    title="Edit"
+                                  >
+                                    <Edit2 className="h-3 w-3" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDelete(item.id)}
+                                    className="p-1 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
+                                    title="Delete"
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </button>
+                                </div>
                               </div>
-                              <div className="flex items-center gap-3 mt-0.5 text-gray-600 dark:text-gray-400">
-                                <span>
-                                  Qty: {item.quantity} {item.unit}
-                                </span>
-                                <span className={item.isLowStock ? 'text-red-600 dark:text-red-400 font-medium' : ''}>
-                                  Available: {item.available} {item.unit}
-                                </span>
-                                {item.threshold > 0 && (
-                                  <span className="text-gray-500 dark:text-gray-400">
-                                    Threshold: {item.threshold}
-                                  </span>
-                                )}
-                              </div>
+                              {isItemExpanded && hasUnits && (
+                                <div className="pl-6 pr-2 pb-2">
+                                  <ul className="space-y-1">
+                                    {units.map((unit) => (
+                                      <li
+                                        key={unit.id}
+                                        className={`flex items-center justify-between text-xs py-1 px-2 rounded ${
+                                          unit.status === 'ASSIGNED'
+                                            ? 'bg-blue-50 dark:bg-blue-900/20'
+                                            : unit.status === 'USED'
+                                            ? 'bg-gray-100 dark:bg-gray-700'
+                                            : 'bg-white dark:bg-gray-800'
+                                        }`}
+                                      >
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-gray-400">•</span>
+                                          <span className="font-medium text-gray-900 dark:text-white">
+                                            {unit.serialNumber || `Unit #${unit.id.slice(-6)}`}
+                                          </span>
+                                          {unit.notes && (
+                                            <span className="text-gray-500 dark:text-gray-400 text-xs">
+                                              - {unit.notes}
+                                            </span>
+                                          )}
+                                        </div>
+                                        <span
+                                          className={`text-xs px-1.5 py-0.5 rounded ${
+                                            unit.status === 'AVAILABLE'
+                                              ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300'
+                                              : unit.status === 'ASSIGNED'
+                                              ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300'
+                                              : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+                                          }`}
+                                        >
+                                          {unit.status}
+                                        </span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
                             </div>
-                            <div className="flex items-center gap-1 ml-2">
-                              <button
-                                onClick={() => handleEdit(item)}
-                                className="p-1 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded"
-                                title="Edit"
-                              >
-                                <Edit2 className="h-3 w-3" />
-                              </button>
-                              <button
-                                onClick={() => handleDelete(item.id)}
-                                className="p-1 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
-                                title="Delete"
-                              >
-                                <Trash2 className="h-3 w-3" />
-                              </button>
-                            </div>
-                          </div>
-                        ))}
+                          )
+                        })}
                       </div>
                     </div>
                   )}
@@ -427,6 +567,25 @@ export default function InventoryPage() {
             setShowPackageManager(false)
             setPackageManagerJobTypeId(null)
           }}
+        />
+      )}
+
+      {/* Unit Form Modal */}
+      {showUnitForm && unitFormItem && (
+        <InventoryUnitForm
+          inventoryItemId={unitFormItem.id}
+          inventoryItemName={unitFormItem.name}
+          onClose={handleUnitFormClose}
+          onSave={handleUnitFormClose}
+        />
+      )}
+
+      {/* Assign to Package Modal */}
+      {showAssignToPackage && assignToPackageItem && (
+        <AssignItemToPackage
+          inventoryItem={assignToPackageItem}
+          onClose={handleAssignToPackageClose}
+          onSave={handleAssignToPackageClose}
         />
       )}
     </div>

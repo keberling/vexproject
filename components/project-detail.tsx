@@ -120,6 +120,20 @@ export default function ProjectDetail({ project: initialProject }: ProjectDetail
 
       const data = await response.json()
       setProject(data.project)
+      // Update formData with the new project data
+      setFormData({
+        name: data.project.name,
+        address: data.project.address || '',
+        description: data.project.description || '',
+        jobTypeId: data.project.jobTypeId || '',
+        gcContactName: data.project.gcContactName || '',
+        gcContactEmail: data.project.gcContactEmail || '',
+        cdsContactName: data.project.cdsContactName || '',
+        cdsContactEmail: data.project.cdsContactEmail || '',
+        franchiseOwnerContactName: data.project.franchiseOwnerContactName || '',
+        franchiseOwnerContactEmail: data.project.franchiseOwnerContactEmail || '',
+        status: data.project.status,
+      })
       setIsEditing(false)
       router.refresh()
     } catch (error) {
@@ -161,6 +175,20 @@ export default function ProjectDetail({ project: initialProject }: ProjectDetail
       if (response.ok) {
         const data = await response.json()
         setProject(data.project)
+        // Update formData with refreshed project data
+        setFormData({
+          name: data.project.name,
+          address: data.project.address || '',
+          description: data.project.description || '',
+          jobTypeId: data.project.jobTypeId || '',
+          gcContactName: data.project.gcContactName || '',
+          gcContactEmail: data.project.gcContactEmail || '',
+          cdsContactName: data.project.cdsContactName || '',
+          cdsContactEmail: data.project.cdsContactEmail || '',
+          franchiseOwnerContactName: data.project.franchiseOwnerContactName || '',
+          franchiseOwnerContactEmail: data.project.franchiseOwnerContactEmail || '',
+          status: data.project.status,
+        })
       }
     } catch (error) {
       console.error('Error refreshing project:', error)
@@ -551,23 +579,37 @@ export default function ProjectDetail({ project: initialProject }: ProjectDetail
         </div>
 
         {/* Inventory Section */}
-        {(project as any).jobTypeId && (project as any).jobType && (
-          <div className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
-            <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                Inventory ({(project as any).jobType?.name || (project as any).jobType})
-              </h2>
-            </div>
-            <div className="p-6">
+        <div className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+          <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+              Inventory
+              {(project as any).jobType && (
+                <span className="ml-2 text-sm font-normal text-gray-600 dark:text-gray-400">
+                  ({(project as any).jobType?.name || (project as any).jobType})
+                </span>
+              )}
+            </h2>
+          </div>
+          <div className="p-6">
+            {(project as any).jobTypeId ? (
               <ProjectInventorySelector
                 projectId={project.id}
-                jobType={(project as any).jobType?.name || (project as any).jobType}
+                jobType={(project as any).jobType?.name || (project as any).jobType || ''}
                 jobTypeId={(project as any).jobTypeId}
                 onAssign={handleRefresh}
               />
-            </div>
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-gray-600 dark:text-gray-400 mb-4">
+                  Select a job type for this project to view and assign inventory items.
+                </p>
+                <p className="text-sm text-gray-500 dark:text-gray-500">
+                  Edit the project above and select a job type to get started.
+                </p>
+              </div>
+            )}
           </div>
-        )}
+        </div>
 
         {/* Milestones Section */}
         <div className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">

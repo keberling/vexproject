@@ -26,6 +26,8 @@ export default function ProjectInventorySelector({
   const [quantities, setQuantities] = useState<Record<string, number>>({})
   const [selectedPackage, setSelectedPackage] = useState<string | null>(null)
   const [applyingPackage, setApplyingPackage] = useState(false)
+  const [itemUnits, setItemUnits] = useState<Record<string, any[]>>({})
+  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     if (jobTypeId) {
@@ -53,12 +55,41 @@ export default function ProjectInventorySelector({
           initialQuantities[item.id] = 0
         })
         setQuantities(initialQuantities)
+
+        // Fetch units for items that track serial numbers
+        const unitsMap: Record<string, any[]> = {}
+        for (const item of data.items || []) {
+          if (item.trackSerialNumbers) {
+            try {
+              const unitsResponse = await fetch(`/api/inventory/units?inventoryItemId=${item.id}`)
+              if (unitsResponse.ok) {
+                const unitsData = await unitsResponse.json()
+                unitsMap[item.id] = unitsData.units || []
+              }
+            } catch (error) {
+              console.error(`Error fetching units for item ${item.id}:`, error)
+            }
+          }
+        }
+        setItemUnits(unitsMap)
       }
     } catch (error) {
       console.error('Error fetching inventory:', error)
     } finally {
       setLoading(false)
     }
+  }
+
+  const toggleItem = (itemId: string) => {
+    setExpandedItems((prev) => {
+      const next = new Set(prev)
+      if (next.has(itemId)) {
+        next.delete(itemId)
+      } else {
+        next.add(itemId)
+      }
+      return next
+    })
   }
 
   const fetchPackages = async () => {
@@ -275,88 +306,158 @@ export default function ProjectInventorySelector({
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {inventoryItems.map((item) => (
-          <div
-            key={item.id}
-            className={`p-4 border rounded-lg ${
-              item.isLowStock
-                ? 'border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-900/10'
-                : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800'
-            }`}
-          >
-            <div className="flex items-start justify-between mb-2">
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <h4 className="font-medium text-gray-900 dark:text-white">
-                    {item.name}
-                  </h4>
-                  {item.isLowStock && (
-                    <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400" />
+        {inventoryItems.map((item) => {
+          const isItemExpanded = expandedItems.has(item.id)
+          const units = itemUnits[item.id] || []
+          const hasUnits = item.trackSerialNumbers && units.length > 0
+          const availableUnits = units.filter((u) => u.status === 'AVAILABLE')
+
+          return (
+            <div
+              key={item.id}
+              className={`p-4 border rounded-lg ${
+                item.isLowStock
+                  ? 'border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-900/10'
+                  : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800'
+              }`}
+            >
+              <div className="flex items-start justify-between mb-2">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    {hasUnits && (
+                      <button
+                        onClick={() => toggleItem(item.id)}
+                        className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                      >
+                        <span className="text-xs">{isItemExpanded ? '▼' : '▶'}</span>
+                      </button>
+                    )}
+                    <h4 className="font-medium text-gray-900 dark:text-white">
+                      {item.name}
+                    </h4>
+                    {item.isLowStock && (
+                      <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400" />
+                    )}
+                  </div>
+                  {item.sku && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      SKU: {item.sku}
+                    </p>
                   )}
                 </div>
-                {item.sku && (
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    SKU: {item.sku}
-                  </p>
-                )}
-              </div>
-            </div>
-
-            <div className="mt-2 space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600 dark:text-gray-400">Available:</span>
-                <span
-                  className={
-                    item.isLowStock
-                      ? 'font-medium text-red-600 dark:text-red-400'
-                      : 'font-medium text-gray-900 dark:text-white'
-                  }
-                >
-                  {item.available} {item.unit}
-                </span>
               </div>
 
-              {milestoneId ? (
-                <div className="flex items-center gap-2 mt-3">
-                  <label className="text-xs text-gray-600 dark:text-gray-400 flex-1">
-                    Quantity to assign:
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    max={item.available}
-                    value={quantities[item.id] || 0}
-                    onChange={(e) =>
-                      handleQuantityChange(item.id, parseInt(e.target.value) || 0)
+              <div className="mt-2 space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600 dark:text-gray-400">Available:</span>
+                  <span
+                    className={
+                      item.isLowStock
+                        ? 'font-medium text-red-600 dark:text-red-400'
+                        : 'font-medium text-gray-900 dark:text-white'
                     }
-                    className="w-20 px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  />
-                  <span className="text-xs text-gray-500 dark:text-gray-400">
-                    {item.unit}
+                  >
+                    {item.trackSerialNumbers ? `${availableUnits.length} unit${availableUnits.length !== 1 ? 's' : ''}` : `${item.available} ${item.unit}`}
                   </span>
                 </div>
-              ) : (
-                <div className="mt-2">
-                  <button
-                    onClick={() => setAssigningItem(item)}
-                    className="w-full flex items-center justify-center gap-2 px-3 py-1.5 text-sm bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded hover:bg-blue-100 dark:hover:bg-blue-900/30"
-                  >
-                    <Plus className="h-4 w-4" />
-                    Assign to Milestone
-                  </button>
+
+                {milestoneId ? (
+                  <div className="flex items-center gap-2 mt-3">
+                    <label className="text-xs text-gray-600 dark:text-gray-400 flex-1">
+                      {item.trackSerialNumbers ? 'Select units:' : 'Quantity to assign:'}
+                    </label>
+                    {!item.trackSerialNumbers && (
+                      <>
+                        <input
+                          type="number"
+                          min="0"
+                          max={item.available}
+                          value={quantities[item.id] || 0}
+                          onChange={(e) =>
+                            handleQuantityChange(item.id, parseInt(e.target.value) || 0)
+                          }
+                          className="w-20 px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                        />
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                          {item.unit}
+                        </span>
+                      </>
+                    )}
+                    {item.trackSerialNumbers && (
+                      <button
+                        onClick={() => setAssigningItem(item)}
+                        className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
+                      >
+                        Select Units
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="mt-2">
+                    <button
+                      onClick={() => setAssigningItem(item)}
+                      className="w-full flex items-center justify-center gap-2 px-3 py-1.5 text-sm bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded hover:bg-blue-100 dark:hover:bg-blue-900/30"
+                    >
+                      <Plus className="h-4 w-4" />
+                      Assign to Milestone
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Units List */}
+              {isItemExpanded && hasUnits && (
+                <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                  <ul className="space-y-1">
+                    {units.map((unit) => (
+                      <li
+                        key={unit.id}
+                        className={`flex items-center justify-between text-xs py-1 px-2 rounded ${
+                          unit.status === 'ASSIGNED'
+                            ? 'bg-blue-50 dark:bg-blue-900/20'
+                            : unit.status === 'USED'
+                            ? 'bg-gray-100 dark:bg-gray-700'
+                            : 'bg-white dark:bg-gray-800'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-gray-400">•</span>
+                          <span className="font-medium text-gray-900 dark:text-white">
+                            {unit.serialNumber || `Unit #${unit.id.slice(-6)}`}
+                          </span>
+                          {unit.notes && (
+                            <span className="text-gray-500 dark:text-gray-400 text-xs">
+                              - {unit.notes}
+                            </span>
+                          )}
+                        </div>
+                        <span
+                          className={`text-xs px-1.5 py-0.5 rounded ${
+                            unit.status === 'AVAILABLE'
+                              ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300'
+                              : unit.status === 'ASSIGNED'
+                              ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300'
+                              : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+                          }`}
+                        >
+                          {unit.status}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {item.distributor && (
+                <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Distributor: {item.distributor}
+                  </p>
                 </div>
               )}
             </div>
-
-            {item.distributor && (
-              <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Distributor: {item.distributor}
-                </p>
-              </div>
-            )}
-          </div>
-        ))}
+          )
+        })}
       </div>
 
       {assigningItem && (

@@ -18,6 +18,7 @@ export async function GET(
         id: params.id,
       },
       include: {
+        jobType: true,
         milestones: {
           orderBy: { createdAt: 'asc' },
           include: {
@@ -35,6 +36,13 @@ export async function GET(
                 },
               },
               orderBy: { createdAt: 'desc' },
+            },
+            inventoryAssignments: {
+              include: {
+                inventoryItem: true,
+                inventoryUnit: true,
+              },
+              orderBy: { assignedAt: 'desc' },
             },
           },
         },
@@ -113,7 +121,7 @@ export async function PATCH(
         ...(body.name && { name: body.name }),
         ...(body.address !== undefined && { address: body.address }),
         ...(body.description !== undefined && { description: body.description }),
-        ...(body.jobType !== undefined && { jobType: body.jobType || null }),
+        ...(body.jobTypeId !== undefined && { jobTypeId: body.jobTypeId || null }),
         ...(body.gcContactName !== undefined && { gcContactName: body.gcContactName }),
         ...(body.gcContactEmail !== undefined && { gcContactEmail: body.gcContactEmail }),
         ...(body.cdsContactName !== undefined && { cdsContactName: body.cdsContactName }),
@@ -123,6 +131,7 @@ export async function PATCH(
         ...(body.status && { status: body.status }),
       },
       include: {
+        jobType: true,
         milestones: {
           orderBy: { createdAt: 'asc' },
           include: {
