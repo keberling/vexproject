@@ -318,13 +318,12 @@ export default function ProjectInventorySelector({
         </h4>
         <button
           onClick={handleAssignAll}
-            disabled={loading}
-            className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:opacity-50"
-          >
-            <Check className="h-4 w-4" />
-            Assign Selected
-          </button>
-        )}
+          disabled={loading}
+          className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:opacity-50"
+        >
+          <Check className="h-4 w-4" />
+          Assign Selected
+        </button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
