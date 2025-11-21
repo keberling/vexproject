@@ -1,8 +1,6 @@
 'use client'
 
-import { useState } from 'react'
-import { Edit2, Trash2, Package, AlertTriangle, ExternalLink, Phone, Mail, Plus } from 'lucide-react'
-import InventoryAssignmentForm from './inventory-assignment-form'
+import { Edit2, Trash2, Package, AlertTriangle, ExternalLink, Phone, Mail } from 'lucide-react'
 
 interface InventoryListProps {
   items: any[]
@@ -12,7 +10,6 @@ interface InventoryListProps {
 }
 
 export default function InventoryList({ items, onEdit, onDelete, onRefresh }: InventoryListProps) {
-  const [assigningItem, setAssigningItem] = useState<any>(null)
 
   if (items.length === 0) {
     return (
@@ -172,13 +169,6 @@ export default function InventoryList({ items, onEdit, onDelete, onRefresh }: In
               <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                 <div className="flex items-center justify-end gap-2">
                   <button
-                    onClick={() => setAssigningItem(item)}
-                    className="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300"
-                    title="Assign to project"
-                  >
-                    <Plus className="h-4 w-4" />
-                  </button>
-                  <button
                     onClick={() => onEdit(item)}
                     className="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300"
                     title="Edit"
@@ -198,17 +188,6 @@ export default function InventoryList({ items, onEdit, onDelete, onRefresh }: In
           ))}
         </tbody>
       </table>
-
-      {assigningItem && (
-        <InventoryAssignmentForm
-          inventoryItem={assigningItem}
-          onClose={() => setAssigningItem(null)}
-          onSave={() => {
-            setAssigningItem(null)
-            onRefresh()
-          }}
-        />
-      )}
     </div>
   )
 }
