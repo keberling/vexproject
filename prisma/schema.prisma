@@ -356,7 +356,7 @@ model InventoryAssignment {
   updatedAt     DateTime  @updatedAt
   inventoryItemId String
   inventoryItem InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Cascade)
-  inventoryUnitId String? // If assigned by serial number, reference the unit
+  inventoryUnitId String? @unique // If assigned by serial number, reference the unit (unique for one-to-one relation)
   inventoryUnit InventoryUnit? @relation(fields: [inventoryUnitId], references: [id], onDelete: SetNull)
   milestoneId   String
   milestone     Milestone @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
