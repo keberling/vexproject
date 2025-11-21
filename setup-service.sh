@@ -88,6 +88,17 @@ fi
 NODE_PATH=$(which node)
 NPM_PATH=$(which npm)
 
+# Verify paths exist
+if [ -z "$NODE_PATH" ] || [ ! -f "$NODE_PATH" ]; then
+    echo -e "${RED}Error: Could not find Node.js executable${NC}"
+    exit 1
+fi
+
+if [ -z "$NPM_PATH" ] || [ ! -f "$NPM_PATH" ]; then
+    echo -e "${RED}Error: Could not find npm executable${NC}"
+    exit 1
+fi
+
 echo ""
 echo "Detected paths:"
 echo "  Node.js: $NODE_PATH"
@@ -103,6 +114,12 @@ SERVICE_FILE="vexproject.service"
 echo ""
 echo "Creating service file..."
 
+# Use EnvironmentFile to load .env if it exists, otherwise rely on individual Environment variables
+ENV_FILE_LINE=""
+if [ -f "$APP_DIR/.env" ]; then
+    ENV_FILE_LINE="EnvironmentFile=$APP_DIR/.env"
+fi
+
 cat > "$SERVICE_FILE" << EOF
 [Unit]
 Description=VEX Project Management Application
@@ -114,6 +131,7 @@ User=$USER
 WorkingDirectory=$APP_DIR
 Environment=NODE_ENV=production
 Environment=PORT=$PORT
+$ENV_FILE_LINE
 ExecStart=$NPM_PATH start
 Restart=always
 RestartSec=10

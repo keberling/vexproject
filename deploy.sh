@@ -106,8 +106,13 @@ echo -e "${BLUE}[1/5] Pulling latest code from git...${NC}"
 if git pull; then
     echo -e "${GREEN}✓ Code updated${NC}"
 else
-    echo -e "${RED}Error: Failed to pull code from git${NC}"
-    exit 1
+    echo -e "${YELLOW}Warning: Failed to pull code from git${NC}"
+    echo -e "${YELLOW}This may be normal if not using git or if there are local changes.${NC}"
+    read -p "Continue anyway? (y/n) " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        exit 1
+    fi
 fi
 echo ""
 
@@ -127,12 +132,14 @@ if npm run db:generate; then
     echo -e "${GREEN}✓ Prisma client generated${NC}"
 else
     echo -e "${RED}Error: Failed to generate Prisma client${NC}"
-    exit 1
+    echo -e "${YELLOW}Warning: Continuing without Prisma client generation...${NC}"
+    echo -e "${YELLOW}This may cause issues if the Prisma schema has changed.${NC}"
 fi
 echo ""
 
 # Note: We intentionally skip db:push to preserve database
 echo -e "${YELLOW}ℹ Skipping database schema push (preserving existing database)${NC}"
+echo -e "${YELLOW}ℹ If you have schema changes, run manually: npm run db:push${NC}"
 echo ""
 
 # Step 4: Build application
@@ -147,44 +154,62 @@ echo ""
 
 # Step 5: Restart service (if systemd service exists)
 echo -e "${BLUE}[5/5] Restarting service...${NC}"
-if systemctl is-active --quiet vexproject.service 2>/dev/null || systemctl list-units --type=service | grep -q "vexproject.service"; then
-    echo "Restarting systemd service..."
-    if sudo systemctl restart vexproject.service; then
-        echo -e "${GREEN}✓ Service restarted${NC}"
-        
-        # Wait a moment and check status
-        sleep 3
-        if systemctl is-active --quiet vexproject.service; then
-            echo -e "${GREEN}✓ Service is running${NC}"
-            echo ""
-            echo "Service status:"
-            sudo systemctl status vexproject.service --no-pager -l | head -15
+
+# Check for systemd service
+SERVICE_RESTARTED=false
+if command -v systemctl &> /dev/null; then
+    # Check if service exists (either active, inactive, or failed)
+    # Use systemctl list-unit-files for more reliable checking
+    if systemctl list-unit-files 2>/dev/null | grep -q "vexproject.service"; then
+        echo "Restarting systemd service..."
+        if sudo systemctl restart vexproject.service 2>/dev/null; then
+            echo -e "${GREEN}✓ Service restart command executed${NC}"
+            SERVICE_RESTARTED=true
+            
+            # Wait a moment and check status
+            sleep 3
+            if systemctl is-active --quiet vexproject.service 2>/dev/null; then
+                echo -e "${GREEN}✓ Service is running${NC}"
+                echo ""
+                echo "Service status:"
+                sudo systemctl status vexproject.service --no-pager -l 2>/dev/null | head -15 || echo "Could not retrieve service status"
+            else
+                echo -e "${YELLOW}⚠ Service may not be running. Check status with:${NC}"
+                echo "  sudo systemctl status vexproject.service"
+                echo ""
+                echo "Recent logs:"
+                sudo journalctl -u vexproject.service -n 20 --no-pager 2>/dev/null | tail -10 || echo "Could not retrieve logs"
+            fi
         else
-            echo -e "${YELLOW}⚠ Service may not be running. Check status with:${NC}"
-            echo "  sudo systemctl status vexproject.service"
-            echo ""
-            echo "Recent logs:"
-            sudo journalctl -u vexproject.service -n 20 --no-pager | tail -10
+            echo -e "${YELLOW}⚠ Could not restart service (may require sudo or service may not exist)${NC}"
+            echo "You may need to restart manually:"
+            echo "  sudo systemctl restart vexproject.service"
         fi
-    else
-        echo -e "${RED}Error: Failed to restart service${NC}"
-        echo "You may need to restart manually:"
-        echo "  sudo systemctl restart vexproject.service"
     fi
-elif command -v pm2 &> /dev/null && pm2 list | grep -q "vexproject"; then
-    echo "Restarting PM2 process..."
-    if pm2 restart vexproject; then
-        echo -e "${GREEN}✓ PM2 process restarted${NC}"
-        pm2 status vexproject
-    else
-        echo -e "${RED}Error: Failed to restart PM2 process${NC}"
+fi
+
+# Check for PM2 if systemd service wasn't found or restarted
+if [ "$SERVICE_RESTARTED" = false ] && command -v pm2 &> /dev/null; then
+    if pm2 list 2>/dev/null | grep -q "vexproject"; then
+        echo "Restarting PM2 process..."
+        if pm2 restart vexproject 2>/dev/null; then
+            echo -e "${GREEN}✓ PM2 process restarted${NC}"
+            pm2 status vexproject 2>/dev/null || true
+            SERVICE_RESTARTED=true
+        else
+            echo -e "${RED}Error: Failed to restart PM2 process${NC}"
+        fi
     fi
-else
-    echo -e "${YELLOW}⚠ No service manager detected${NC}"
-    echo "You'll need to restart the application manually:"
-    echo "  - If using systemd: sudo systemctl restart vexproject.service"
-    echo "  - If using PM2: pm2 restart vexproject"
-    echo "  - If running manually: Stop current process and run 'npm start'"
+fi
+
+# If no service was restarted, provide instructions
+if [ "$SERVICE_RESTARTED" = false ]; then
+    echo -e "${YELLOW}⚠ No running service detected${NC}"
+    echo "The application has been built but is not running as a service."
+    echo "To start the application:"
+    echo "  - If using systemd: sudo systemctl start vexproject.service"
+    echo "  - If using PM2: pm2 start npm --name vexproject -- start"
+    echo "  - If running manually: cd $APP_DIR && npm start"
 fi
 echo ""
 
