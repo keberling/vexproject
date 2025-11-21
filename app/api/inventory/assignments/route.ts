@@ -13,16 +13,12 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url)
     const projectId = searchParams.get('projectId')
-    const milestoneId = searchParams.get('milestoneId')
     const inventoryItemId = searchParams.get('inventoryItemId')
     const status = searchParams.get('status')
 
     const where: any = {}
     if (projectId) {
       where.projectId = projectId
-    }
-    if (milestoneId) {
-      where.milestoneId = milestoneId
     }
     if (inventoryItemId) {
       where.inventoryItemId = inventoryItemId
@@ -42,12 +38,6 @@ export async function GET(request: NextRequest) {
             name: true,
           },
         },
-        milestone: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
       },
       orderBy: { assignedAt: 'desc' },
     })
@@ -62,7 +52,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST - Assign inventory to milestone
+// POST - Assign inventory to project
 export async function POST(request: NextRequest) {
   try {
     const user = await getCurrentUser()
@@ -72,7 +62,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { inventoryItemId, inventoryUnitId, projectId, milestoneId, quantity, notes } = body
+    const { inventoryItemId, inventoryUnitId, projectId, quantity, notes } = body
 
     if (!inventoryItemId || !projectId) {
       return NextResponse.json(
@@ -130,7 +120,6 @@ export async function POST(request: NextRequest) {
           inventoryItemId,
           inventoryUnitId,
           projectId,
-          milestoneId: milestoneId || null,
           quantity: 1,
           notes: notes || null,
           status: 'ASSIGNED',
@@ -139,12 +128,6 @@ export async function POST(request: NextRequest) {
           inventoryItem: true,
           inventoryUnit: true,
           project: {
-            select: {
-              id: true,
-              name: true,
-            },
-          },
-          milestone: {
             select: {
               id: true,
               name: true,
@@ -204,29 +187,22 @@ export async function POST(request: NextRequest) {
 
     // Create bulk assignment
     const assignment = await prisma.inventoryAssignment.create({
-      data: {
-        inventoryItemId,
-        projectId,
-        milestoneId: milestoneId || null,
-        quantity,
-        notes: notes || null,
-        status: 'ASSIGNED',
-      },
-      include: {
-        inventoryItem: true,
-        project: {
-          select: {
-            id: true,
-            name: true,
+        data: {
+          inventoryItemId,
+          projectId,
+          quantity,
+          notes: notes || null,
+          status: 'ASSIGNED',
+        },
+        include: {
+          inventoryItem: true,
+          project: {
+            select: {
+              id: true,
+              name: true,
+            },
           },
         },
-        milestone: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-      },
     })
 
     return NextResponse.json({ assignment }, { status: 201 })

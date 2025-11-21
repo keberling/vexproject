@@ -360,8 +360,6 @@ model InventoryAssignment {
   inventoryUnit InventoryUnit? @relation(fields: [inventoryUnitId], references: [id], onDelete: SetNull)
   projectId     String
   project       Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  milestoneId   String?   // Optional - for backward compatibility, but inventory is now project-based
-  milestone     Milestone? @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
 }
 
 // InventoryAssignmentStatus enum values (stored as strings in SQLite):
