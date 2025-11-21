@@ -186,15 +186,14 @@ export default function InventoryForm({ item, defaultJobTypeId, onClose, onSave 
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Job Type *
+                  Job Type
                 </label>
                 <select
-                  required
                   value={formData.jobTypeId}
                   onChange={(e) => setFormData({ ...formData, jobTypeId: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 >
-                  <option value="">Select Job Type</option>
+                  <option value="">Uncategorized</option>
                   {jobTypes.map((jt) => (
                     <option key={jt.id} value={jt.id}>
                       {jt.name}
@@ -202,7 +201,7 @@ export default function InventoryForm({ item, defaultJobTypeId, onClose, onSave 
                   ))}
                 </select>
                 <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                  Items will be grouped by job type in projects
+                  Items will be grouped by job type in projects. Leave blank for uncategorized items.
                 </p>
               </div>
 
