@@ -97,7 +97,7 @@ export default function InventoryPage() {
     fetchLowStock()
   }, [])
 
-  const handleCreate = (jobTypeId?: string) => {
+  const handleCreate = (jobTypeId?: string | null) => {
     setEditingItem(null)
     setSelectedJobTypeId(jobTypeId || null)
     setShowForm(true)
