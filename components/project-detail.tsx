@@ -74,6 +74,7 @@ export default function ProjectDetail({ project: initialProject }: ProjectDetail
   const [isEditing, setIsEditing] = useState(false)
   const [loading, setLoading] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
+  const [jobTypes, setJobTypes] = useState<any[]>([])
   const [formData, setFormData] = useState({
     name: project.name,
     address: (project as any).address || '',
@@ -87,6 +88,22 @@ export default function ProjectDetail({ project: initialProject }: ProjectDetail
     franchiseOwnerContactEmail: (project as any).franchiseOwnerContactEmail || '',
     status: project.status,
   })
+
+  useEffect(() => {
+    fetchJobTypes()
+  }, [])
+
+  const fetchJobTypes = async () => {
+    try {
+      const response = await fetch('/api/job-types')
+      if (response.ok) {
+        const data = await response.json()
+        setJobTypes(data.jobTypes || [])
+      }
+    } catch (error) {
+      console.error('Error fetching job types:', error)
+    }
+  }
 
   const handleSave = async () => {
     setLoading(true)
