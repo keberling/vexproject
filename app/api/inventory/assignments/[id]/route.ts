@@ -78,14 +78,10 @@ export async function PUT(
       data: updateData,
       include: {
         inventoryItem: true,
-        milestone: {
-          include: {
-            project: {
-              select: {
-                id: true,
-                name: true,
-              },
-            },
+        project: {
+          select: {
+            id: true,
+            name: true,
           },
         },
       },

@@ -26,14 +26,10 @@ export async function GET(request: NextRequest) {
       include: {
         assignment: {
           include: {
-            milestone: {
-              include: {
-                project: {
-                  select: {
-                    id: true,
-                    name: true,
-                  },
-                },
+            project: {
+              select: {
+                id: true,
+                name: true,
               },
             },
           },

@@ -21,14 +21,10 @@ export async function GET(
         assignments: {
           include: {
             inventoryUnit: true,
-            milestone: {
-              include: {
-                project: {
-                  select: {
-                    id: true,
-                    name: true,
-                  },
-                },
+            project: {
+              select: {
+                id: true,
+                name: true,
               },
             },
           },

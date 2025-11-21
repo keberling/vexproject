@@ -20,14 +20,10 @@ export async function GET(
         inventoryItem: true,
         assignment: {
           include: {
-            milestone: {
-              include: {
-                project: {
-                  select: {
-                    id: true,
-                    name: true,
-                  },
-                },
+            project: {
+              select: {
+                id: true,
+                name: true,
               },
             },
           },

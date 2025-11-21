@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentUser } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
-// POST - Apply package to a milestone (assign all items in package)
+// POST - Apply package to a project (assign all items in package)
 export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }
