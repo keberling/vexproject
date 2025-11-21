@@ -1,0 +1,264 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  password      String?   // Optional for Microsoft SSO users
+  name          String?
+  role          String    @default("user") // 'user' or 'admin'
+  provider      String?   // 'email' or 'microsoft'
+  microsoftId   String?   // Microsoft/Azure AD user ID
+  accessToken   String?   // Microsoft access token for API calls
+  refreshToken  String?   // Microsoft refresh token
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  projects      Project[]
+  calendarEvents CalendarEvent[]
+  milestoneComments MilestoneComment[]
+  communications Communication[]
+  statusChanges StatusChange[]
+  backupSchedules BackupSchedule[]
+  assignedTasks Task[]
+  assignedMilestones Milestone[]
+  taskComments TaskComment[]
+}
+
+model Project {
+  id            String    @id @default(cuid())
+  name          String
+  address       String?
+  description   String?
+  gcContactName     String?   // GC Contact Name
+  gcContactEmail    String?   // GC Contact Email
+  cdsContactName     String?   // CDS Contact Name
+  cdsContactEmail    String?   // CDS Contact Email
+  franchiseOwnerContactName String? // Franchise Owner Contact Name
+  franchiseOwnerContactEmail String? // Franchise Owner Contact Email
+  status        String        @default("INITIAL_CONTACT")
+  templateId    String?
+  template      ProjectTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  milestones    Milestone[]
+  files         ProjectFile[]
+  calendarEvents CalendarEvent[]
+  communications Communication[]
+  statusChanges StatusChange[]
+}
+
+// ProjectStatus enum values (stored as strings in SQLite):
+// INITIAL_CONTACT, QUOTE_SENT, QUOTE_APPROVED, CONTRACT_SIGNED,
+// PAYMENT_RECEIVED, PARTS_ORDERED, PARTS_RECEIVED, INSTALLATION_SCHEDULED,
+// INSTALLATION_IN_PROGRESS, INSTALLATION_COMPLETE, FINAL_INSPECTION,
+// PROJECT_COMPLETE, ON_HOLD, CANCELLED
+
+model Milestone {
+  id            String    @id @default(cuid())
+  name          String
+  description   String?
+  category      String?         // Category/group for milestones
+  status        String          @default("PENDING")
+  isImportant   Boolean         @default(false) // Mark milestone as important
+  dueDate       DateTime?
+  completedDate DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  projectId     String
+  project       Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assignedToId String?
+  assignedTo   User?     @relation(fields: [assignedToId], references: [id], onDelete: SetNull)
+  files         ProjectFile[]
+  comments      MilestoneComment[]
+  communications Communication[]
+  statusChanges StatusChange[]
+  tasks         Task[]
+}
+
+// MilestoneStatus enum values (stored as strings in SQLite):
+// PENDING, PENDING_WAITING_FOR_INFO, PENDING_SCHEDULED, IN_PROGRESS, COMPLETED, ON_HOLD
+
+model CalendarEvent {
+  id            String    @id @default(cuid())
+  title         String
+  description   String?
+  startDate     DateTime
+  endDate       DateTime?
+  allDay        Boolean   @default(false)
+  location      String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projectId     String?
+  project       Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+}
+
+model ProjectFile {
+  id            String    @id @default(cuid())
+  name          String
+  fileName      String
+  fileUrl       String
+  fileType      String
+  fileSize      Int
+  thumbnailUrl  String?   // URL to thumbnail for image files
+  uploadedAt    DateTime  @default(now())
+  projectId     String
+  project       Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  milestoneId   String?
+  milestone     Milestone? @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
+  // SharePoint integration fields
+  sharepointId  String?
+  sharepointUrl String?
+}
+
+model ProjectTemplate {
+  id            String    @id @default(cuid())
+  name          String
+  description   String?
+  isDefault     Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  templateMilestones TemplateMilestone[]
+  projects      Project[]
+}
+
+model TemplateMilestone {
+  id            String    @id @default(cuid())
+  name          String
+  description   String?
+  category      String?         // Category/group for milestone
+  order         Int       @default(0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  templateId    String
+  template      ProjectTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  tasks         TemplateTask[]
+}
+
+model MilestoneComment {
+  id            String    @id @default(cuid())
+  content       String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  milestoneId   String
+  milestone     Milestone @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Communication {
+  id            String    @id @default(cuid())
+  type          String          // 'CALL', 'EMAIL', 'MEETING', 'NOTE'
+  subject       String?
+  content       String
+  direction     String?         // 'INBOUND', 'OUTBOUND' (for calls/emails)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  projectId     String
+  project       Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  milestoneId   String?
+  milestone     Milestone? @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model StatusChange {
+  id            String    @id @default(cuid())
+  entityType    String          // 'PROJECT' or 'MILESTONE'
+  entityId      String
+  oldStatus     String?
+  newStatus     String
+  createdAt     DateTime  @default(now())
+  projectId     String
+  project       Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  milestoneId   String?
+  milestone     Milestone? @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model BackupSchedule {
+  id            String    @id @default(cuid())
+  enabled       Boolean   @default(true)
+  frequency     String          // '10min', '30min', 'hourly', 'daily', 'weekly'
+  startTime     DateTime?       // Optional start time for the first backup
+  lastRun       DateTime?       // Last time the backup ran
+  nextRun       DateTime?       // Next scheduled run time
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  createdBy     String
+  creator       User      @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+}
+
+model Task {
+  id            String    @id @default(cuid())
+  name          String
+  description   String?
+  status        String          @default("PENDING")
+  isImportant   Boolean         @default(false) // Mark task as important
+  dueDate       DateTime?
+  completedDate DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  milestoneId   String
+  milestone     Milestone @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
+  assignedToId  String?
+  assignedTo    User?     @relation(fields: [assignedToId], references: [id], onDelete: SetNull)
+  comments      TaskComment[]
+  files         TaskFile[]
+}
+
+// TaskStatus enum values (stored as strings in SQLite):
+// PENDING, IN_PROGRESS, COMPLETED, ON_HOLD
+
+model TaskComment {
+  id            String    @id @default(cuid())
+  content       String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  taskId        String
+  task          Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model TemplateTask {
+  id            String    @id @default(cuid())
+  name          String
+  description   String?
+  order         Int       @default(0)
+  assignedToId  String?   // User ID for task assignment in template
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  templateMilestoneId String
+  templateMilestone TemplateMilestone @relation(fields: [templateMilestoneId], references: [id], onDelete: Cascade)
+}
+
+model TaskFile {
+  id            String    @id @default(cuid())
+  name          String
+  fileName      String
+  fileUrl       String
+  fileType      String
+  fileSize      Int
+  thumbnailUrl  String?   // URL to thumbnail for image files
+  uploadedAt    DateTime  @default(now())
+  taskId        String
+  task          Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  // SharePoint integration fields
+  sharepointId  String?
+  sharepointUrl String?
+}
+

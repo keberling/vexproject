@@ -1,0 +1,32 @@
+[Unit]
+Description=VEX Project Management Application
+After=network.target
+
+[Service]
+Type=simple
+User=youruser
+WorkingDirectory=/home/youruser/vexproject
+Environment=NODE_ENV=production
+Environment=PORT=3000
+# Option 1: Load all variables from .env file (recommended)
+# Uncomment the line below and comment out individual Environment lines
+# EnvironmentFile=/home/youruser/vexproject/.env
+# 
+# Option 2: Add individual environment variables here
+# Environment=DATABASE_URL="file:./prisma/dev.db"
+# Environment=JWT_SECRET="your-secret"
+# etc.
+ExecStart=/usr/bin/npm start
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=vexproject
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
+
