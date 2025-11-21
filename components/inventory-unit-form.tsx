@@ -16,22 +16,39 @@ export default function InventoryUnitForm({
   onClose,
   onSave,
 }: InventoryUnitFormProps) {
-  const [units, setUnits] = useState([{ serialNumber: '', notes: '' }])
+  const [units, setUnits] = useState([{ assetTag: '', serialNumber: '', notes: '' }])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [autoGenerateTags, setAutoGenerateTags] = useState(true)
+
+  const generateAssetTag = (index: number) => {
+    // Generate asset tag based on item SKU or name + timestamp + index
+    const timestamp = Date.now().toString(36).toUpperCase()
+    const itemPrefix = inventoryItemName.substring(0, 3).toUpperCase().replace(/[^A-Z0-9]/g, '') || 'INV'
+    return `${itemPrefix}-${timestamp}-${String(index + 1).padStart(3, '0')}`
+  }
 
   const addUnit = () => {
-    setUnits([...units, { serialNumber: '', notes: '' }])
+    const newIndex = units.length
+    const assetTag = autoGenerateTags ? generateAssetTag(newIndex) : ''
+    setUnits([...units, { assetTag, serialNumber: '', notes: '' }])
   }
 
   const removeUnit = (index: number) => {
     setUnits(units.filter((_, i) => i !== index))
   }
 
-  const updateUnit = (index: number, field: 'serialNumber' | 'notes', value: string) => {
+  const updateUnit = (index: number, field: 'assetTag' | 'serialNumber' | 'notes', value: string) => {
     const newUnits = [...units]
     newUnits[index][field] = value
     setUnits(newUnits)
+  }
+
+  const generateAllTags = () => {
+    setUnits(units.map((unit, index) => ({
+      ...unit,
+      assetTag: unit.assetTag || generateAssetTag(index),
+    })))
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -39,11 +56,25 @@ export default function InventoryUnitForm({
     setLoading(true)
     setError('')
 
-    // Filter out empty units
-    const validUnits = units.filter((u) => u.serialNumber.trim() || u.notes.trim())
+    // Filter out empty units and ensure asset tags are present
+    const validUnits = units
+      .map((unit, index) => ({
+        ...unit,
+        assetTag: unit.assetTag.trim() || generateAssetTag(index),
+      }))
+      .filter((u) => u.assetTag.trim())
 
     if (validUnits.length === 0) {
-      setError('Please add at least one unit with a serial number or notes')
+      setError('Please add at least one unit with an asset tag')
+      setLoading(false)
+      return
+    }
+
+    // Check for duplicate asset tags
+    const assetTags = validUnits.map((u) => u.assetTag.trim())
+    const duplicates = assetTags.filter((tag, index) => assetTags.indexOf(tag) !== index)
+    if (duplicates.length > 0) {
+      setError('Asset tags must be unique. Duplicate tags found.')
       setLoading(false)
       return
     }
@@ -58,6 +89,7 @@ export default function InventoryUnitForm({
           },
           body: JSON.stringify({
             inventoryItemId,
+            assetTag: unit.assetTag.trim(),
             serialNumber: unit.serialNumber.trim() || null,
             notes: unit.notes.trim() || null,
           }),
@@ -102,6 +134,28 @@ export default function InventoryUnitForm({
             </div>
           )}
 
+          <div className="mb-4 flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="autoGenerate"
+              checked={autoGenerateTags}
+              onChange={(e) => setAutoGenerateTags(e.target.checked)}
+              className="w-4 h-4"
+            />
+            <label htmlFor="autoGenerate" className="text-sm text-gray-700 dark:text-gray-300">
+              Auto-generate asset tags
+            </label>
+            {!autoGenerateTags && (
+              <button
+                type="button"
+                onClick={generateAllTags}
+                className="ml-auto text-xs px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
+              >
+                Generate All Tags
+              </button>
+            )}
+          </div>
+
           <div className="space-y-3">
             {units.map((unit, index) => (
               <div
@@ -111,16 +165,34 @@ export default function InventoryUnitForm({
                 <div className="flex-1 space-y-2">
                   <div>
                     <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Serial/MAC Number *
+                      Asset Tag / Inventory Number *
                     </label>
                     <input
                       type="text"
                       required
-                      value={unit.serialNumber}
-                      onChange={(e) => updateUnit(index, 'serialNumber', e.target.value)}
-                      placeholder="Enter serial or MAC number"
+                      value={unit.assetTag}
+                      onChange={(e) => updateUnit(index, 'assetTag', e.target.value)}
+                      placeholder="Enter asset tag or inventory number"
                       className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     />
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      This will be printed on the QR code label
+                    </p>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Serial Number (optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={unit.serialNumber}
+                      onChange={(e) => updateUnit(index, 'serialNumber', e.target.value)}
+                      placeholder="Enter serial number for tracking installed items"
+                      className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    />
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      Optional: For tracking what's installed at a job site
+                    </p>
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">

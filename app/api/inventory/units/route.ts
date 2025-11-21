@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
       },
       orderBy: [
         { status: 'asc' },
-        { serialNumber: 'asc' },
+        { assetTag: 'asc' },
         { createdAt: 'asc' },
       ],
     })
@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { inventoryItemId, serialNumber, notes } = body
+    const { inventoryItemId, assetTag, serialNumber, notes } = body
 
     if (!inventoryItemId) {
       return NextResponse.json(
@@ -71,26 +71,29 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check if serial number already exists for this item
-    if (serialNumber) {
-      const existing = await prisma.inventoryUnit.findFirst({
-        where: {
-          inventoryItemId,
-          serialNumber,
-        },
-      })
+    if (!assetTag || !assetTag.trim()) {
+      return NextResponse.json(
+        { error: 'assetTag is required' },
+        { status: 400 }
+      )
+    }
 
-      if (existing) {
-        return NextResponse.json(
-          { error: 'Serial number already exists for this item' },
-          { status: 400 }
-        )
-      }
+    // Check if asset tag already exists (globally unique)
+    const existing = await prisma.inventoryUnit.findUnique({
+      where: { assetTag: assetTag.trim() },
+    })
+
+    if (existing) {
+      return NextResponse.json(
+        { error: 'Asset tag already exists' },
+        { status: 400 }
+      )
     }
 
     const unit = await prisma.inventoryUnit.create({
       data: {
         inventoryItemId,
+        assetTag: assetTag.trim(),
         serialNumber: serialNumber || null,
         notes: notes || null,
         status: 'AVAILABLE',

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { Users, Activity, Database, Download, Upload, Cloud, Shield, Mail, Calendar, FileText, MessageSquare, ArrowRight, RefreshCw, X, Clock, Save, Trash2 } from 'lucide-react'
 import { format } from 'date-fns'
 import UserAvatar from './user-avatar'
+import LabelSettings from './label-settings'
 
 interface User {
   id: string
@@ -791,6 +792,11 @@ export default function AdminPage() {
             })
           )}
         </div>
+      </div>
+
+      {/* Label Settings Section */}
+      <div className="mt-6">
+        <LabelSettings />
       </div>
     </div>
   )

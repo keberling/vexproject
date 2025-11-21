@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { X, Save, ExternalLink, Phone, Mail } from 'lucide-react'
+import SelectSerialsToRemove from './select-serials-to-remove'
 
 interface InventoryFormProps {
   item?: any
@@ -35,6 +36,9 @@ export default function InventoryForm({ item, defaultJobTypeId, onClose, onSave 
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [showSerialSelector, setShowSerialSelector] = useState(false)
+  const [assignedUnits, setAssignedUnits] = useState<any[]>([])
+  const [originalQuantity, setOriginalQuantity] = useState(0)
 
   useEffect(() => {
     fetchJobTypes()
@@ -54,6 +58,7 @@ export default function InventoryForm({ item, defaultJobTypeId, onClose, onSave 
 
   useEffect(() => {
     if (item) {
+      const qty = item.quantity || 0
       setFormData({
         name: item.name || '',
         description: item.description || '',
@@ -61,7 +66,7 @@ export default function InventoryForm({ item, defaultJobTypeId, onClose, onSave 
         category: item.category || '',
         jobTypeId: item.jobTypeId || item.jobType?.id || '',
         trackSerialNumbers: item.trackSerialNumbers || false,
-        quantity: item.quantity || 0,
+        quantity: qty,
         threshold: item.threshold || 0,
         unit: item.unit || 'each',
         location: item.location || '',
@@ -75,21 +80,99 @@ export default function InventoryForm({ item, defaultJobTypeId, onClose, onSave 
         cost: item.cost?.toString() || '',
         notes: item.notes || '',
       })
+      setOriginalQuantity(qty)
+      // Fetch assigned units if tracking serial numbers
+      if (item.trackSerialNumbers && item.id) {
+        fetchAssignedUnits(item.id)
+      }
     } else if (defaultJobTypeId) {
       setFormData((prev) => ({ ...prev, jobTypeId: defaultJobTypeId }))
+      setOriginalQuantity(0)
     }
   }, [item, defaultJobTypeId])
+
+  const fetchAssignedUnits = async (itemId: string) => {
+    try {
+      const response = await fetch(`/api/inventory/units?inventoryItemId=${itemId}`)
+      if (response.ok) {
+        const data = await response.json()
+        // Get all units that are assigned to projects
+        const units = data.units || []
+        const assigned: any[] = []
+        
+        for (const unit of units) {
+          if (unit.status === 'ASSIGNED' && unit.assignment) {
+            // Fetch full assignment details
+            try {
+              const assignmentResponse = await fetch(`/api/inventory/assignments/${unit.assignment.id}`)
+              if (assignmentResponse.ok) {
+                const assignmentData = await assignmentResponse.json()
+                assigned.push({
+                  ...unit,
+                  assignment: assignmentData.assignment,
+                })
+              } else {
+                assigned.push(unit)
+              }
+            } catch (error) {
+              assigned.push(unit)
+            }
+          }
+        }
+        
+        setAssignedUnits(assigned)
+      }
+    } catch (error) {
+      console.error('Error fetching assigned units:', error)
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError('')
 
+    const newQuantity = parseInt(formData.quantity.toString()) || 0
+
+    // Check if we're reducing quantity for a serial-tracked item with assigned units
+    if (item && item.trackSerialNumbers && newQuantity < originalQuantity && assignedUnits.length > 0) {
+      const unitsToRemove = originalQuantity - newQuantity
+      if (unitsToRemove > 0 && unitsToRemove <= assignedUnits.length) {
+        setShowSerialSelector(true)
+        setLoading(false)
+        return
+      }
+    }
+
+    await saveItem(newQuantity)
+  }
+
+  const saveItem = async (qty: number, unitIdsToRemove: string[] = []) => {
+    setLoading(true)
+    setError('')
+
     try {
+      // First, unassign selected units from projects if any
+      if (unitIdsToRemove.length > 0) {
+        for (const unitId of unitIdsToRemove) {
+          // Find the assignment for this unit
+          const unit = assignedUnits.find((u) => u.id === unitId)
+          if (unit?.assignment?.id) {
+            // Delete the assignment (which will also update unit status back to AVAILABLE)
+            const response = await fetch(`/api/inventory/assignments/${unit.assignment.id}`, {
+              method: 'DELETE',
+            })
+            if (!response.ok) {
+              throw new Error('Failed to remove unit assignment')
+            }
+          }
+        }
+      }
+
       const payload = {
         ...formData,
         jobTypeId: formData.jobTypeId || null,
-        quantity: parseInt(formData.quantity.toString()) || 0,
+        quantity: qty,
         threshold: parseInt(formData.threshold.toString()) || 0,
         cost: formData.cost ? parseFloat(formData.cost.toString()) : null,
       }
@@ -110,12 +193,18 @@ export default function InventoryForm({ item, defaultJobTypeId, onClose, onSave 
         throw new Error(data.error || 'Failed to save item')
       }
 
+      setShowSerialSelector(false)
       onSave()
     } catch (err: any) {
       setError(err.message || 'Error saving item')
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleSerialRemovalConfirm = (unitIdsToRemove: string[]) => {
+    const newQuantity = parseInt(formData.quantity.toString()) || 0
+    saveItem(newQuantity, unitIdsToRemove)
   }
 
   return (
@@ -456,6 +545,21 @@ export default function InventoryForm({ item, defaultJobTypeId, onClose, onSave 
           </div>
         </form>
       </div>
+
+      {/* Serial Number Removal Selector */}
+      {showSerialSelector && item && (
+        <SelectSerialsToRemove
+          inventoryItem={item}
+          currentQuantity={originalQuantity}
+          newQuantity={parseInt(formData.quantity.toString()) || 0}
+          assignedUnits={assignedUnits}
+          onClose={() => {
+            setShowSerialSelector(false)
+            setLoading(false)
+          }}
+          onConfirm={handleSerialRemovalConfirm}
+        />
+      )}
     </div>
   )
 }

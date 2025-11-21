@@ -1,13 +1,14 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Package, Plus, AlertTriangle, Search, Edit2, Trash2, Settings, Box, Download, Upload } from 'lucide-react'
+import { Package, Plus, AlertTriangle, Search, Edit2, Trash2, Settings, Box, Download, Upload, QrCode } from 'lucide-react'
 import InventoryForm from '@/components/inventory-form'
 import JobTypeManager from '@/components/job-type-manager'
 import InventoryPackageManager from '@/components/inventory-package-manager'
 import InventoryUnitForm from '@/components/inventory-unit-form'
 import AssignItemToPackage from '@/components/assign-item-to-package'
 import AssignUnitToProject from '@/components/assign-unit-to-project'
+import QRCodePrint from '@/components/qr-code-print'
 
 export default function InventoryPage() {
   const [jobTypes, setJobTypes] = useState<any[]>([])
@@ -24,6 +25,9 @@ export default function InventoryPage() {
   const [assignToPackageItem, setAssignToPackageItem] = useState<any>(null)
   const [assignUnitToProjectUnit, setAssignUnitToProjectUnit] = useState<any>(null)
   const [packageManagerJobTypeId, setPackageManagerJobTypeId] = useState<string | null>(null)
+  const [showQRPrint, setShowQRPrint] = useState(false)
+  const [qrPrintUnit, setQrPrintUnit] = useState<any>(null)
+  const [labelSettings, setLabelSettings] = useState<any>(null)
   const [editingItem, setEditingItem] = useState<any>(null)
   const [selectedJobTypeId, setSelectedJobTypeId] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
@@ -91,10 +95,23 @@ export default function InventoryPage() {
     }
   }
 
+  const fetchLabelSettings = async () => {
+    try {
+      const response = await fetch('/api/admin/label-settings')
+      if (response.ok) {
+        const data = await response.json()
+        setLabelSettings(data.settings)
+      }
+    } catch (error) {
+      console.error('Error fetching label settings:', error)
+    }
+  }
+
   useEffect(() => {
     fetchJobTypes()
     fetchItems()
     fetchLowStock()
+    fetchLabelSettings()
   }, [])
 
   const handleCreate = (jobTypeId?: string | null) => {
@@ -492,7 +509,7 @@ export default function InventoryPage() {
                                       <div className="flex items-center gap-2">
                                         <span className="text-gray-400">•</span>
                                         <span className="font-medium text-gray-900 dark:text-white">
-                                          {unit.serialNumber || `Unit #${unit.id.slice(-6)}`}
+                                          {unit.assetTag || unit.serialNumber || `Unit #${unit.id.slice(-6)}`}
                                         </span>
                                         {unit.notes && (
                                           <span className="text-gray-500 dark:text-gray-400 text-xs">
@@ -501,6 +518,25 @@ export default function InventoryPage() {
                                         )}
                                       </div>
                                       <div className="flex items-center gap-2">
+                                        <button
+                                          onClick={() => {
+                                            setQrPrintUnit({
+                                              id: unit.id,
+                                              assetTag: unit.assetTag,
+                                              serialNumber: unit.serialNumber,
+                                              inventoryItem: {
+                                                id: item.id,
+                                                name: item.name,
+                                                sku: item.sku,
+                                              },
+                                            })
+                                            setShowQRPrint(true)
+                                          }}
+                                          className="px-2 py-0.5 text-xs bg-purple-600 text-white rounded hover:bg-purple-700"
+                                          title="Print QR Code Label"
+                                        >
+                                          <QrCode className="h-3 w-3 inline" />
+                                        </button>
                                         {unit.status === 'AVAILABLE' && (
                                           <button
                                             onClick={() => {
@@ -698,7 +734,7 @@ export default function InventoryPage() {
                                         <div className="flex items-center gap-2">
                                           <span className="text-gray-400">•</span>
                                           <span className="font-medium text-gray-900 dark:text-white">
-                                            {unit.serialNumber || `Unit #${unit.id.slice(-6)}`}
+                                            {unit.assetTag || unit.serialNumber || `Unit #${unit.id.slice(-6)}`}
                                           </span>
                                           {unit.notes && (
                                             <span className="text-gray-500 dark:text-gray-400 text-xs">
@@ -818,6 +854,18 @@ export default function InventoryPage() {
             setShowAssignUnitToProject(false)
             setAssignUnitToProjectUnit(null)
             fetchItems()
+          }}
+        />
+      )}
+
+      {/* QR Code Print Modal */}
+      {showQRPrint && qrPrintUnit && (
+        <QRCodePrint
+          unit={qrPrintUnit}
+          settings={labelSettings}
+          onClose={() => {
+            setShowQRPrint(false)
+            setQrPrintUnit(null)
           }}
         />
       )}

@@ -334,7 +334,8 @@ model InventoryItem {
 
 model InventoryUnit {
   id            String    @id @default(cuid())
-  serialNumber  String?   // Serial number for this specific unit
+  assetTag      String?   @unique // Asset tag / Inventory number (QR code identifier) - unique
+  serialNumber  String?   // Optional serial number for tracking what's installed at a job
   status        String    @default("AVAILABLE") // AVAILABLE, ASSIGNED, USED, RETURNED
   notes         String?   // Notes specific to this unit
   createdAt     DateTime  @default(now())
@@ -366,4 +367,19 @@ model InventoryAssignment {
 // ASSIGNED - Item is assigned but not yet used
 // USED - Item has been used/consumed
 // RETURNED - Item was returned to inventory
+
+model LabelSettings {
+  id            String    @id @default(cuid())
+  labelWidth    Float     @default(4.0) // Label width in inches
+  labelHeight   Float     @default(2.0) // Label height in inches
+  qrCodeSize    Int       @default(200) // QR code size in pixels
+  fontSize      Int       @default(12) // Font size for text
+  showItemName  Boolean   @default(true) // Show inventory item name on label
+  showAssetTag  Boolean   @default(true) // Show asset tag on label
+  showSerialNumber Boolean @default(true) // Show serial number on label (if available)
+  showQRCode    Boolean   @default(true) // Show QR code on label
+  labelTemplate String?   // Custom label template (HTML/CSS)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
 

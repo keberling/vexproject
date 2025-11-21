@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Package, Plus, Check, X, AlertTriangle, Box } from 'lucide-react'
+import { Package, Plus, Check, X, AlertTriangle, Box, Trash2 } from 'lucide-react'
 import InventoryAssignmentForm from './inventory-assignment-form'
 
 interface ProjectInventorySelectorProps {
@@ -26,16 +26,20 @@ export default function ProjectInventorySelector({
   const [applyingPackage, setApplyingPackage] = useState(false)
   const [itemUnits, setItemUnits] = useState<Record<string, any[]>>({})
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set())
+  const [assignedInventory, setAssignedInventory] = useState<any[]>([])
+  const [loadingAssignments, setLoadingAssignments] = useState(false)
 
   useEffect(() => {
     if (jobTypeId) {
       fetchInventoryForJobType()
       fetchPackages()
+      fetchAssignedInventory()
     } else {
       setInventoryItems([])
       setPackages([])
+      setAssignedInventory([])
     }
-  }, [jobTypeId])
+  }, [jobTypeId, projectId])
 
   const fetchInventoryForJobType = async () => {
     if (!jobTypeId) return
@@ -106,6 +110,49 @@ export default function ProjectInventorySelector({
       }
     } catch (error) {
       console.error('Error fetching packages:', error)
+    }
+  }
+
+  const fetchAssignedInventory = async () => {
+    if (!projectId) return
+
+    setLoadingAssignments(true)
+    try {
+      const response = await fetch(`/api/inventory/assignments?projectId=${projectId}`)
+      if (response.ok) {
+        const data = await response.json()
+        setAssignedInventory(data.assignments || [])
+      }
+    } catch (error) {
+      console.error('Error fetching assigned inventory:', error)
+    } finally {
+      setLoadingAssignments(false)
+    }
+  }
+
+  const handleUnassign = async (assignmentId: string, inventoryUnitId?: string) => {
+    if (!confirm('Are you sure you want to remove this inventory item from the project?')) {
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/inventory/assignments/${assignmentId}`, {
+        method: 'DELETE',
+      })
+
+      if (response.ok) {
+        fetchAssignedInventory()
+        fetchInventoryForJobType()
+        if (onAssign) {
+          onAssign()
+        }
+      } else {
+        const data = await response.json()
+        alert(data.error || 'Failed to unassign inventory')
+      }
+    } catch (error) {
+      console.error('Error unassigning inventory:', error)
+      alert('Error unassigning inventory')
     }
   }
 
@@ -200,6 +247,7 @@ export default function ProjectInventorySelector({
 
       await Promise.all(assignments)
       setQuantities({})
+      fetchAssignedInventory()
       if (onAssign) {
         onAssign()
       }
@@ -210,6 +258,26 @@ export default function ProjectInventorySelector({
       setLoading(false)
     }
   }
+
+  // Group assigned inventory by item
+  const assignedByItem = assignedInventory.reduce((acc, assignment) => {
+    const itemId = assignment.inventoryItemId
+    if (!acc[itemId]) {
+      acc[itemId] = {
+        item: assignment.inventoryItem,
+        assignments: [],
+        totalQuantity: 0,
+        units: [] as any[],
+      }
+    }
+    acc[itemId].assignments.push(assignment)
+    if (assignment.inventoryUnit) {
+      acc[itemId].units.push(assignment.inventoryUnit)
+    } else {
+      acc[itemId].totalQuantity += assignment.quantity
+    }
+    return acc
+  }, {} as Record<string, any>)
 
   if (!jobTypeId) {
     return (
@@ -245,6 +313,91 @@ export default function ProjectInventorySelector({
           Inventory for {jobType}
         </h3>
       </div>
+
+      {/* Assigned Inventory Section */}
+      {Object.keys(assignedByItem).length > 0 && (
+        <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+          <h4 className="text-sm font-semibold text-green-900 dark:text-green-300 mb-3">
+            Assigned to This Project
+          </h4>
+          <div className="space-y-2">
+            {Object.values(assignedByItem).map((group: any) => {
+              const item = group.item
+              const hasSerialUnits = group.units.length > 0
+
+              return (
+                <div
+                  key={item.id}
+                  className="bg-white dark:bg-gray-800 rounded border border-green-200 dark:border-green-700 p-3"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-gray-900 dark:text-white">
+                          {item.name}
+                        </span>
+                        {item.sku && (
+                          <span className="text-xs text-gray-500 dark:text-gray-400">
+                            ({item.sku})
+                          </span>
+                        )}
+                      </div>
+                      {hasSerialUnits ? (
+                        <div className="mt-2 space-y-1">
+                          <p className="text-xs text-gray-600 dark:text-gray-400">
+                            {group.units.length} unit{group.units.length !== 1 ? 's' : ''} assigned:
+                          </p>
+                          <ul className="pl-4 space-y-1">
+                            {group.units.map((unit: any) => {
+                              const assignment = group.assignments.find(
+                                (a: any) => a.inventoryUnitId === unit.id
+                              )
+                              return (
+                                <li
+                                  key={unit.id}
+                                  className="flex items-center justify-between text-xs"
+                                >
+                                  <span className="text-gray-700 dark:text-gray-300">
+                                    • {unit.assetTag || unit.serialNumber || `Unit #${unit.id.slice(-6)}`}
+                                  </span>
+                                  <button
+                                    onClick={() => handleUnassign(assignment.id, unit.id)}
+                                    className="ml-2 px-2 py-0.5 text-xs bg-red-600 text-white rounded hover:bg-red-700"
+                                    title="Remove from project"
+                                  >
+                                    Remove
+                                  </button>
+                                </li>
+                              )
+                            })}
+                          </ul>
+                        </div>
+                      ) : (
+                        <div className="mt-1 flex items-center gap-2">
+                          <span className="text-xs text-gray-600 dark:text-gray-400">
+                            Quantity: {group.totalQuantity} {item.unit}
+                          </span>
+                          {group.assignments.map((assignment: any) => (
+                            <button
+                              key={assignment.id}
+                              onClick={() => handleUnassign(assignment.id)}
+                              className="px-2 py-0.5 text-xs bg-red-600 text-white rounded hover:bg-red-700 flex items-center gap-1"
+                              title="Remove from project"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                              Remove
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Package Selection */}
       {packages.length > 0 && (

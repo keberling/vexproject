@@ -109,6 +109,27 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    // Get assignment with unit info
+    const assignment = await prisma.inventoryAssignment.findUnique({
+      where: { id: params.id },
+      include: {
+        inventoryUnit: true,
+      },
+    })
+
+    if (!assignment) {
+      return NextResponse.json({ error: 'Assignment not found' }, { status: 404 })
+    }
+
+    // If assignment has a unit, update its status back to AVAILABLE
+    if (assignment.inventoryUnitId && assignment.inventoryUnit) {
+      await prisma.inventoryUnit.update({
+        where: { id: assignment.inventoryUnitId },
+        data: { status: 'AVAILABLE' },
+      })
+    }
+
+    // Delete the assignment
     await prisma.inventoryAssignment.delete({
       where: { id: params.id },
     })
