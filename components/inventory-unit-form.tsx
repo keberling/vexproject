@@ -16,19 +16,19 @@ export default function InventoryUnitForm({
   onClose,
   onSave,
 }: InventoryUnitFormProps) {
-  const [units, setUnits] = useState([{ serialNumber: '', notes: '' }])
+  const [units, setUnits] = useState([{ serialNumber: '', dateReceived: '', notes: '' }])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
   const addUnit = () => {
-    setUnits([...units, { serialNumber: '', notes: '' }])
+    setUnits([...units, { serialNumber: '', dateReceived: '', notes: '' }])
   }
 
   const removeUnit = (index: number) => {
     setUnits(units.filter((_, i) => i !== index))
   }
 
-  const updateUnit = (index: number, field: 'serialNumber' | 'notes', value: string) => {
+  const updateUnit = (index: number, field: 'serialNumber' | 'dateReceived' | 'notes', value: string) => {
     const newUnits = [...units]
     newUnits[index][field] = value
     setUnits(newUnits)
@@ -39,18 +39,9 @@ export default function InventoryUnitForm({
     setLoading(true)
     setError('')
 
-    // Filter out completely empty units
-    const validUnits = units.filter((u) => u.serialNumber.trim() || u.notes.trim())
-
-    if (validUnits.length === 0) {
-      setError('Please add at least one unit')
-      setLoading(false)
-      return
-    }
-
     try {
-      // Create all units
-      const promises = validUnits.map((unit) =>
+      // Create all units (allow empty units - they can be filled in later)
+      const promises = units.map((unit) =>
         fetch('/api/inventory/units', {
           method: 'POST',
           headers: {
@@ -60,6 +51,7 @@ export default function InventoryUnitForm({
             inventoryItemId,
             assetTag: null, // Asset tags are assigned when printing QR codes
             serialNumber: unit.serialNumber.trim() || null,
+            dateReceived: unit.dateReceived.trim() || null,
             notes: unit.notes.trim() || null,
           }),
         })
@@ -110,6 +102,17 @@ export default function InventoryUnitForm({
                 className="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700"
               >
                 <div className="flex-1 space-y-2">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Date Received
+                    </label>
+                    <input
+                      type="date"
+                      value={unit.dateReceived}
+                      onChange={(e) => updateUnit(index, 'dateReceived', e.target.value)}
+                      className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    />
+                  </div>
                   <div>
                     <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Serial Number (optional)

@@ -99,7 +99,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { inventoryItemId, assetTag, serialNumber, notes } = body
+    const { inventoryItemId, assetTag, serialNumber, dateReceived, notes } = body
 
     if (!inventoryItemId) {
       return NextResponse.json(
@@ -128,6 +128,7 @@ export async function POST(request: NextRequest) {
         inventoryItemId,
         assetTag: assetTag && assetTag.trim() ? assetTag.trim() : null,
         serialNumber: serialNumber || null,
+        dateReceived: dateReceived ? new Date(dateReceived) : null,
         notes: notes || null,
         status: 'AVAILABLE',
       },

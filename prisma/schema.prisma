@@ -337,6 +337,7 @@ model InventoryUnit {
   assetTag      String?   @unique // Asset tag / Inventory number (QR code identifier) - unique
   serialNumber  String?   // Optional serial number for tracking what's installed at a job
   status        String    @default("AVAILABLE") // AVAILABLE, ASSIGNED, USED, RETURNED
+  dateReceived  DateTime? // Date when the unit was received into inventory
   notes         String?   // Notes specific to this unit
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt

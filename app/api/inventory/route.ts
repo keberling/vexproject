@@ -41,25 +41,50 @@ export async function GET(request: NextRequest) {
       ],
     })
 
-    // Calculate available quantity (total - assigned)
+    // Sync quantity from unit count and calculate available quantity
     const itemsWithAvailable = await Promise.all(
       items.map(async (item) => {
-        const assignedQuantity = await prisma.inventoryAssignment.aggregate({
+        // Count actual units for this item
+        const unitCount = await prisma.inventoryUnit.count({
+          where: { inventoryItemId: item.id },
+        })
+        
+        // Sync quantity if it doesn't match unit count
+        if (item.quantity !== unitCount) {
+          await prisma.inventoryItem.update({
+            where: { id: item.id },
+            data: { quantity: unitCount },
+          })
+          item.quantity = unitCount
+        }
+        
+        // Count assigned units (units with ASSIGNED or USED status)
+        const assignedUnits = await prisma.inventoryUnit.count({
           where: {
             inventoryItemId: item.id,
             status: { in: ['ASSIGNED', 'USED'] },
+          },
+        })
+        
+        // Also count bulk assignments (assignments without units)
+        const bulkAssigned = await prisma.inventoryAssignment.aggregate({
+          where: {
+            inventoryItemId: item.id,
+            status: { in: ['ASSIGNED', 'USED'] },
+            inventoryUnitId: null, // Only bulk assignments
           },
           _sum: {
             quantity: true,
           },
         })
-
-        const assigned = assignedQuantity._sum.quantity || 0
+        
+        const assigned = assignedUnits + (bulkAssigned._sum.quantity || 0)
         const available = item.quantity - assigned
         const isLowStock = available < item.threshold
 
         return {
           ...item,
+          quantity: unitCount, // Use synced quantity
           available,
           assigned,
           isLowStock,

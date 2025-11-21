@@ -57,7 +57,6 @@ export default function InventoryPage() {
       const response = await fetch('/api/inventory')
       if (response.ok) {
         const data = await response.json()
-        setItems(data.items || [])
         
         // Fetch units for all items (tracking is always enabled)
         const unitsMap: Record<string, any[]> = {}
@@ -66,12 +65,27 @@ export default function InventoryPage() {
             const unitsResponse = await fetch(`/api/inventory/units?inventoryItemId=${item.id}`)
             if (unitsResponse.ok) {
               const unitsData = await unitsResponse.json()
-              unitsMap[item.id] = unitsData.units || []
+              const units = unitsData.units || []
+              unitsMap[item.id] = units
+              
+              // Recalculate available based on actual units
+              const availableUnits = units.filter((u: any) => u.status === 'AVAILABLE').length
+              const assignedUnits = units.filter((u: any) => u.status === 'ASSIGNED' || u.status === 'USED').length
+              
+              // Update item with recalculated values
+              const itemIndex = data.items.findIndex((i: any) => i.id === item.id)
+              if (itemIndex >= 0) {
+                data.items[itemIndex].quantity = units.length
+                data.items[itemIndex].available = availableUnits
+                data.items[itemIndex].assigned = assignedUnits
+                data.items[itemIndex].isLowStock = availableUnits < (item.threshold || 0)
+              }
             }
           } catch (error) {
             console.error(`Error fetching units for item ${item.id}:`, error)
           }
         }
+        setItems(data.items || [])
         setItemUnits(unitsMap)
       }
     } catch (error) {
