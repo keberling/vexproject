@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Package, Plus, Check, X, AlertTriangle } from 'lucide-react'
+import InventoryAssignmentForm from './inventory-assignment-form'
 
 interface ProjectInventorySelectorProps {
   projectId: string
