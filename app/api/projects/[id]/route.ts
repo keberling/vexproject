@@ -113,6 +113,7 @@ export async function PATCH(
         ...(body.name && { name: body.name }),
         ...(body.address !== undefined && { address: body.address }),
         ...(body.description !== undefined && { description: body.description }),
+        ...(body.jobType !== undefined && { jobType: body.jobType || null }),
         ...(body.gcContactName !== undefined && { gcContactName: body.gcContactName }),
         ...(body.gcContactEmail !== undefined && { gcContactEmail: body.gcContactEmail }),
         ...(body.cdsContactName !== undefined && { cdsContactName: body.cdsContactName }),

@@ -42,7 +42,8 @@ export async function POST(request: NextRequest) {
     const { 
       name, 
       address, 
-      description, 
+      description,
+      jobType,
       gcContactName, 
       gcContactEmail, 
       cdsContactName, 
@@ -99,6 +100,7 @@ export async function POST(request: NextRequest) {
         name,
         address: address || null,
         description: description || null,
+        jobType: jobType || null,
         gcContactName: gcContactName || null,
         gcContactEmail: gcContactEmail || null,
         cdsContactName: cdsContactName || null,

@@ -28,6 +28,7 @@ export default function NewProjectForm() {
     name: '',
     address: '',
     description: '',
+    jobType: '',
     gcContactName: '',
     gcContactEmail: '',
     cdsContactName: '',
@@ -183,6 +184,33 @@ export default function NewProjectForm() {
           className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2"
           placeholder="Project description..."
         />
+      </div>
+
+      <div>
+        <label htmlFor="jobType" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+          Job Type
+        </label>
+        <select
+          name="jobType"
+          id="jobType"
+          value={formData.jobType}
+          onChange={handleChange}
+          className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2"
+        >
+          <option value="">Select Job Type</option>
+          <option value="Access Control">Access Control</option>
+          <option value="Camera">Camera</option>
+          <option value="Network">Network</option>
+          <option value="Audio/Video">Audio/Video</option>
+          <option value="Intercom">Intercom</option>
+          <option value="Fire Alarm">Fire Alarm</option>
+          <option value="Security">Security</option>
+          <option value="Structured Cabling">Structured Cabling</option>
+          <option value="General">General</option>
+        </select>
+        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+          Selecting a job type will automatically show relevant inventory items for this project
+        </p>
       </div>
 
       <div>

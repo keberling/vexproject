@@ -38,6 +38,7 @@ model Project {
   name          String
   address       String?
   description   String?
+  jobType       String?   // Job type (e.g., "Access Control", "Camera", "Network", etc.)
   gcContactName     String?   // GC Contact Name
   gcContactEmail    String?   // GC Contact Email
   cdsContactName     String?   // CDS Contact Name
@@ -84,6 +85,7 @@ model Milestone {
   communications Communication[]
   statusChanges StatusChange[]
   tasks         Task[]
+  inventoryAssignments InventoryAssignment[]
 }
 
 // MilestoneStatus enum values (stored as strings in SQLite):
@@ -261,4 +263,50 @@ model TaskFile {
   sharepointId  String?
   sharepointUrl String?
 }
+
+model InventoryItem {
+  id            String    @id @default(cuid())
+  name          String
+  description   String?
+  sku           String?   // Stock Keeping Unit / Part Number
+  category      String?   // Category for grouping items
+  jobType       String?   // Job type this item is used for (e.g., "Access Control", "Camera", "Network", etc.)
+  quantity      Int       @default(0) // Current available quantity
+  threshold     Int       @default(0) // Re-order threshold (show alert when quantity < threshold)
+  unit          String    @default("each") // Unit of measurement (each, box, case, etc.)
+  location      String?   // Storage location
+  supplier      String?   // Supplier/Manufacturer name
+  distributor   String?   // Distributor name (where to order from)
+  distributorContact String? // Distributor contact information
+  orderLink     String?   // URL/link to order page
+  orderPhone    String?   // Phone number to order
+  orderEmail    String?   // Email to order
+  partNumber    String?   // Part number for ordering
+  cost          Float?    // Unit cost
+  notes         String?   // Additional notes
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  assignments   InventoryAssignment[]
+}
+
+model InventoryAssignment {
+  id            String    @id @default(cuid())
+  quantity      Int       // Quantity assigned to this milestone
+  status        String    @default("ASSIGNED") // ASSIGNED, USED, RETURNED
+  assignedAt    DateTime  @default(now())
+  usedAt        DateTime? // When the inventory was actually used
+  returnedAt    DateTime? // When the inventory was returned (if applicable)
+  notes         String?   // Additional notes about this assignment
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  inventoryItemId String
+  inventoryItem InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Cascade)
+  milestoneId   String
+  milestone     Milestone @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
+}
+
+// InventoryAssignmentStatus enum values (stored as strings in SQLite):
+// ASSIGNED - Item is assigned but not yet used
+// USED - Item has been used/consumed
+// RETURNED - Item was returned to inventory
 

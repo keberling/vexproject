@@ -71,6 +71,12 @@ export default async function ProjectDetailPage({
               },
             },
           },
+          inventoryAssignments: {
+            include: {
+              inventoryItem: true,
+            },
+            orderBy: { assignedAt: 'desc' },
+          },
         },
       },
       files: {
