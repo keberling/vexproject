@@ -23,12 +23,13 @@ export default function NewProjectForm() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [templates, setTemplates] = useState<Template[]>([])
+  const [jobTypes, setJobTypes] = useState<any[]>([])
   const [loadingTemplates, setLoadingTemplates] = useState(true)
   const [formData, setFormData] = useState({
     name: '',
     address: '',
     description: '',
-    jobType: '',
+    jobTypeId: '',
     gcContactName: '',
     gcContactEmail: '',
     cdsContactName: '',
@@ -39,11 +40,15 @@ export default function NewProjectForm() {
   })
 
   useEffect(() => {
-    const fetchTemplates = async () => {
+    const fetchData = async () => {
       try {
-        const response = await fetch('/api/templates')
-        if (response.ok) {
-          const data = await response.json()
+        const [templatesRes, jobTypesRes] = await Promise.all([
+          fetch('/api/templates'),
+          fetch('/api/job-types'),
+        ])
+
+        if (templatesRes.ok) {
+          const data = await templatesRes.json()
           setTemplates(data.templates)
           // Set default template if available
           const defaultTemplate = data.templates.find((t: Template) => t.isDefault)
@@ -51,14 +56,19 @@ export default function NewProjectForm() {
             setFormData(prev => ({ ...prev, templateId: defaultTemplate.id }))
           }
         }
+
+        if (jobTypesRes.ok) {
+          const data = await jobTypesRes.json()
+          setJobTypes(data.jobTypes || [])
+        }
       } catch (error) {
-        console.error('Error fetching templates:', error)
+        console.error('Error fetching data:', error)
       } finally {
         setLoadingTemplates(false)
       }
     }
 
-    fetchTemplates()
+    fetchData()
   }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -187,29 +197,25 @@ export default function NewProjectForm() {
       </div>
 
       <div>
-        <label htmlFor="jobType" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+        <label htmlFor="jobTypeId" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
           Job Type
         </label>
         <select
-          name="jobType"
-          id="jobType"
-          value={formData.jobType}
+          name="jobTypeId"
+          id="jobTypeId"
+          value={formData.jobTypeId}
           onChange={handleChange}
           className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2"
         >
           <option value="">Select Job Type</option>
-          <option value="Access Control">Access Control</option>
-          <option value="Camera">Camera</option>
-          <option value="Network">Network</option>
-          <option value="Audio/Video">Audio/Video</option>
-          <option value="Intercom">Intercom</option>
-          <option value="Fire Alarm">Fire Alarm</option>
-          <option value="Security">Security</option>
-          <option value="Structured Cabling">Structured Cabling</option>
-          <option value="General">General</option>
+          {jobTypes.map((jt) => (
+            <option key={jt.id} value={jt.id}>
+              {jt.name}
+            </option>
+          ))}
         </select>
         <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-          Selecting a job type will automatically show relevant inventory items for this project
+          Selecting a job type will automatically show relevant inventory items and packages for this project
         </p>
       </div>
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Project, Milestone, ProjectFile, CalendarEvent } from '@prisma/client'
 import MilestoneList from './milestone-list'
@@ -78,7 +78,7 @@ export default function ProjectDetail({ project: initialProject }: ProjectDetail
     name: project.name,
     address: (project as any).address || '',
     description: project.description || '',
-    jobType: (project as any).jobType || '',
+    jobTypeId: (project as any).jobTypeId || '',
     gcContactName: (project as any).gcContactName || '',
     gcContactEmail: (project as any).gcContactEmail || '',
     cdsContactName: (project as any).cdsContactName || '',
@@ -296,23 +296,19 @@ export default function ProjectDetail({ project: initialProject }: ProjectDetail
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Job Type</label>
                   <select
-                    value={formData.jobType}
-                    onChange={(e) => setFormData({ ...formData, jobType: e.target.value })}
+                    value={formData.jobTypeId}
+                    onChange={(e) => setFormData({ ...formData, jobTypeId: e.target.value })}
                     className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2"
                   >
                     <option value="">Select Job Type</option>
-                    <option value="Access Control">Access Control</option>
-                    <option value="Camera">Camera</option>
-                    <option value="Network">Network</option>
-                    <option value="Audio/Video">Audio/Video</option>
-                    <option value="Intercom">Intercom</option>
-                    <option value="Fire Alarm">Fire Alarm</option>
-                    <option value="Security">Security</option>
-                    <option value="Structured Cabling">Structured Cabling</option>
-                    <option value="General">General</option>
+                    {jobTypes.map((jt) => (
+                      <option key={jt.id} value={jt.id}>
+                        {jt.name}
+                      </option>
+                    ))}
                   </select>
                   <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                    Selecting a job type will show relevant inventory items
+                    Selecting a job type will show relevant inventory items and packages
                   </p>
                 </div>
                 <div>
@@ -398,20 +394,16 @@ export default function ProjectDetail({ project: initialProject }: ProjectDetail
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Job Type</label>
                   <select
-                    value={formData.jobType}
-                    onChange={(e) => setFormData({ ...formData, jobType: e.target.value })}
+                    value={formData.jobTypeId}
+                    onChange={(e) => setFormData({ ...formData, jobTypeId: e.target.value })}
                     className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2"
                   >
                     <option value="">Select Job Type</option>
-                    <option value="Access Control">Access Control</option>
-                    <option value="Camera">Camera</option>
-                    <option value="Network">Network</option>
-                    <option value="Audio/Video">Audio/Video</option>
-                    <option value="Intercom">Intercom</option>
-                    <option value="Fire Alarm">Fire Alarm</option>
-                    <option value="Security">Security</option>
-                    <option value="Structured Cabling">Structured Cabling</option>
-                    <option value="General">General</option>
+                    {jobTypes.map((jt) => (
+                      <option key={jt.id} value={jt.id}>
+                        {jt.name}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>
@@ -435,7 +427,7 @@ export default function ProjectDetail({ project: initialProject }: ProjectDetail
                       name: project.name,
                       address: (project as any).address || '',
                       description: project.description || '',
-                      jobType: (project as any).jobType || '',
+                      jobTypeId: (project as any).jobTypeId || '',
                       gcContactName: (project as any).gcContactName || '',
                       gcContactEmail: (project as any).gcContactEmail || '',
                       cdsContactName: (project as any).cdsContactName || '',
@@ -542,15 +534,18 @@ export default function ProjectDetail({ project: initialProject }: ProjectDetail
         </div>
 
         {/* Inventory Section */}
-        {project.jobType && (
+        {(project as any).jobTypeId && (project as any).jobType && (
           <div className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
             <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Inventory ({project.jobType})</h2>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Inventory ({(project as any).jobType?.name || (project as any).jobType})
+              </h2>
             </div>
             <div className="p-6">
               <ProjectInventorySelector
                 projectId={project.id}
-                jobType={project.jobType}
+                jobType={(project as any).jobType?.name || (project as any).jobType}
+                jobTypeId={(project as any).jobTypeId}
                 onAssign={handleRefresh}
               />
             </div>

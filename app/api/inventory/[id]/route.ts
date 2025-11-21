@@ -17,8 +17,10 @@ export async function GET(
     const item = await prisma.inventoryItem.findUnique({
       where: { id: params.id },
       include: {
+        jobType: true,
         assignments: {
           include: {
+            inventoryUnit: true,
             milestone: {
               include: {
                 project: {
@@ -31,6 +33,9 @@ export async function GET(
             },
           },
           orderBy: { assignedAt: 'desc' },
+        },
+        units: {
+          orderBy: { createdAt: 'asc' },
         },
       },
     })
@@ -89,7 +94,8 @@ export async function PUT(
       description,
       sku,
       category,
-      jobType,
+      jobTypeId,
+      trackSerialNumbers,
       quantity,
       threshold,
       unit,
@@ -112,7 +118,8 @@ export async function PUT(
         ...(description !== undefined && { description: description || null }),
         ...(sku !== undefined && { sku: sku || null }),
         ...(category !== undefined && { category: category || null }),
-        ...(jobType !== undefined && { jobType: jobType || null }),
+        ...(jobTypeId !== undefined && { jobTypeId: jobTypeId || null }),
+        ...(trackSerialNumbers !== undefined && { trackSerialNumbers }),
         ...(quantity !== undefined && { quantity }),
         ...(threshold !== undefined && { threshold }),
         ...(unit && { unit }),
@@ -126,6 +133,9 @@ export async function PUT(
         ...(partNumber !== undefined && { partNumber: partNumber || null }),
         ...(cost !== undefined && { cost: cost || null }),
         ...(notes !== undefined && { notes: notes || null }),
+      },
+      include: {
+        jobType: true,
       },
     })
 

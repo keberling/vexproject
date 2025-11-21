@@ -1,42 +1,46 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Package, Plus, AlertTriangle, Search, Filter } from 'lucide-react'
-import InventoryList from '@/components/inventory-list'
+import { Package, Plus, AlertTriangle, Search, Edit2, Trash2, Settings } from 'lucide-react'
 import InventoryForm from '@/components/inventory-form'
+import JobTypeManager from '@/components/job-type-manager'
+import InventoryPackageManager from '@/components/inventory-package-manager'
 
 export default function InventoryPage() {
+  const [jobTypes, setJobTypes] = useState<any[]>([])
   const [items, setItems] = useState<any[]>([])
   const [lowStockItems, setLowStockItems] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
+  const [showJobTypeManager, setShowJobTypeManager] = useState(false)
+  const [showPackageManager, setShowPackageManager] = useState(false)
+  const [packageManagerJobTypeId, setPackageManagerJobTypeId] = useState<string | null>(null)
   const [editingItem, setEditingItem] = useState<any>(null)
+  const [selectedJobTypeId, setSelectedJobTypeId] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
-  const [filterCategory, setFilterCategory] = useState<string>('')
-  const [showLowStockOnly, setShowLowStockOnly] = useState(false)
-  const [categories, setCategories] = useState<string[]>([])
+  const [expandedJobTypes, setExpandedJobTypes] = useState<Set<string>>(new Set())
+
+  const fetchJobTypes = async () => {
+    try {
+      const response = await fetch('/api/job-types')
+      if (response.ok) {
+        const data = await response.json()
+        setJobTypes(data.jobTypes || [])
+        // Expand all job types by default
+        setExpandedJobTypes(new Set(data.jobTypes?.map((jt: any) => jt.id) || []))
+      }
+    } catch (error) {
+      console.error('Error fetching job types:', error)
+    }
+  }
 
   const fetchItems = async () => {
     try {
       setLoading(true)
-      const params = new URLSearchParams()
-      if (showLowStockOnly) {
-        params.append('lowStockOnly', 'true')
-      }
-      if (filterCategory) {
-        params.append('category', filterCategory)
-      }
-
-      const response = await fetch(`/api/inventory?${params.toString()}`)
+      const response = await fetch('/api/inventory')
       if (response.ok) {
         const data = await response.json()
         setItems(data.items || [])
-        
-        // Extract unique categories
-        const uniqueCategories = Array.from(
-          new Set(data.items?.map((item: any) => item.category).filter(Boolean) || [])
-        ) as string[]
-        setCategories(uniqueCategories)
       }
     } catch (error) {
       console.error('Error fetching inventory:', error)
@@ -58,24 +62,29 @@ export default function InventoryPage() {
   }
 
   useEffect(() => {
+    fetchJobTypes()
     fetchItems()
     fetchLowStock()
-  }, [showLowStockOnly, filterCategory])
+  }, [])
 
-  const handleCreate = () => {
+  const handleCreate = (jobTypeId?: string) => {
     setEditingItem(null)
+    setSelectedJobTypeId(jobTypeId || null)
     setShowForm(true)
   }
 
   const handleEdit = (item: any) => {
     setEditingItem(item)
+    setSelectedJobTypeId(item.jobTypeId || null)
     setShowForm(true)
   }
 
   const handleFormClose = () => {
     setShowForm(false)
     setEditingItem(null)
+    setSelectedJobTypeId(null)
     fetchItems()
+    fetchJobTypes()
     fetchLowStock()
   }
 
@@ -102,142 +111,324 @@ export default function InventoryPage() {
     }
   }
 
+  const toggleJobType = (jobTypeId: string) => {
+    setExpandedJobTypes((prev) => {
+      const next = new Set(prev)
+      if (next.has(jobTypeId)) {
+        next.delete(jobTypeId)
+      } else {
+        next.add(jobTypeId)
+      }
+      return next
+    })
+  }
+
+  // Group items by job type
+  const itemsByJobType = items.reduce((acc, item) => {
+    const key = item.jobTypeId || 'unassigned'
+    if (!acc[key]) {
+      acc[key] = []
+    }
+    acc[key].push(item)
+    return acc
+  }, {} as Record<string, any[]>)
+
   // Filter items by search term
-  const filteredItems = items.filter((item) => {
-    const matchesSearch =
-      !searchTerm ||
+  const filterItems = (items: any[]) => {
+    if (!searchTerm) return items
+    return items.filter((item) =>
       item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.sku?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.description?.toLowerCase().includes(searchTerm.toLowerCase())
-    return matchesSearch
-  })
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
         {/* Header */}
-        <div className="mb-6">
+        <div className="mb-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                <Package className="h-8 w-8" />
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                <Package className="h-6 w-6" />
                 Inventory Management
               </h1>
-              <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                Manage your global inventory and track items assigned to projects
-              </p>
             </div>
-            <button
-              onClick={handleCreate}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              <Plus className="h-5 w-5" />
-              Add Item
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowJobTypeManager(true)}
+                className="flex items-center gap-2 px-3 py-1.5 bg-gray-600 text-white text-sm rounded-lg hover:bg-gray-700 transition-colors"
+              >
+                <Settings className="h-4 w-4" />
+                Manage Job Types
+              </button>
+              <button
+                onClick={() => handleCreate()}
+                className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                <Plus className="h-4 w-4" />
+                Add Item
+              </button>
+            </div>
           </div>
         </div>
 
         {/* Low Stock Alert */}
         {lowStockItems.length > 0 && (
-          <div className="mb-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-            <div className="flex items-center gap-2 text-red-800 dark:text-red-400">
-              <AlertTriangle className="h-5 w-5" />
+          <div className="mb-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3">
+            <div className="flex items-center gap-2 text-red-800 dark:text-red-400 text-sm">
+              <AlertTriangle className="h-4 w-4" />
               <span className="font-semibold">
                 {lowStockItems.length} item{lowStockItems.length !== 1 ? 's' : ''} below threshold
               </span>
             </div>
-            <div className="mt-2 text-sm text-red-700 dark:text-red-300">
-              {lowStockItems.slice(0, 5).map((item) => (
-                <span key={item.id} className="mr-4">
-                  {item.name} ({item.available} available, threshold: {item.threshold})
-                </span>
-              ))}
-              {lowStockItems.length > 5 && (
-                <span className="text-red-600 dark:text-red-400">
-                  ...and {lowStockItems.length - 5} more
-                </span>
-              )}
-            </div>
           </div>
         )}
 
-        {/* Filters */}
-        <div className="mb-6 bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-          <div className="flex flex-wrap gap-4 items-center">
-            {/* Search */}
-            <div className="flex-1 min-w-[200px]">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Search items..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-            </div>
-
-            {/* Category Filter */}
-            {categories.length > 0 && (
-              <div className="flex items-center gap-2">
-                <Filter className="h-5 w-5 text-gray-400" />
-                <select
-                  value={filterCategory}
-                  onChange={(e) => setFilterCategory(e.target.value)}
-                  className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">All Categories</option>
-                  {categories.map((cat) => (
-                    <option key={cat} value={cat}>
-                      {cat}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            {/* Low Stock Toggle */}
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={showLowStockOnly}
-                onChange={(e) => setShowLowStockOnly(e.target.checked)}
-                className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-              />
-              <span className="text-sm text-gray-700 dark:text-gray-300">
-                Low Stock Only
-              </span>
-            </label>
+        {/* Search */}
+        <div className="mb-4">
+          <div className="relative">
+            <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search items..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-8 pr-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-1 focus:ring-blue-500"
+            />
           </div>
         </div>
 
-        {/* Inventory List */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
-          {loading ? (
-            <div className="p-8 text-center text-gray-500 dark:text-gray-400">
-              Loading inventory...
-            </div>
-          ) : (
-            <InventoryList
-              items={filteredItems}
-              onEdit={handleEdit}
-              onDelete={handleDelete}
-              onRefresh={fetchItems}
-            />
-          )}
-        </div>
+        {/* Inventory by Job Type */}
+        {loading ? (
+          <div className="p-8 text-center text-gray-500 dark:text-gray-400 text-sm">
+            Loading inventory...
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {/* Items grouped by job type */}
+            {jobTypes.map((jobType) => {
+              const jobTypeItems = filterItems(itemsByJobType[jobType.id] || [])
+              if (jobTypeItems.length === 0 && !searchTerm) return null
+
+              const isExpanded = expandedJobTypes.has(jobType.id)
+
+              return (
+                <div
+                  key={jobType.id}
+                  className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden"
+                >
+                  <div
+                    className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-900 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
+                    onClick={() => toggleJobType(jobType.id)}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                        {isExpanded ? '▼' : '▶'}
+                      </span>
+                      <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
+                        {jobType.name}
+                      </h3>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                        ({jobTypeItems.length} items)
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setPackageManagerJobTypeId(jobType.id)
+                          setShowPackageManager(true)
+                        }}
+                        className="text-xs px-2 py-0.5 bg-purple-600 text-white rounded hover:bg-purple-700"
+                        title="Manage Packages"
+                      >
+                        Packages
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleCreate(jobType.id)
+                        }}
+                        className="text-xs px-2 py-0.5 bg-blue-600 text-white rounded hover:bg-blue-700"
+                      >
+                        + Add
+                      </button>
+                    </div>
+                  </div>
+                  {isExpanded && (
+                    <div className="p-2">
+                      <div className="grid grid-cols-1 gap-1">
+                        {jobTypeItems.map((item) => (
+                          <div
+                            key={item.id}
+                            className={`flex items-center justify-between p-2 rounded text-xs hover:bg-gray-50 dark:hover:bg-gray-700 ${
+                              item.isLowStock ? 'bg-red-50 dark:bg-red-900/10' : ''
+                            }`}
+                          >
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium text-gray-900 dark:text-white truncate">
+                                  {item.name}
+                                </span>
+                                {item.isLowStock && (
+                                  <AlertTriangle className="h-3 w-3 text-red-600 dark:text-red-400 flex-shrink-0" />
+                                )}
+                                {item.sku && (
+                                  <span className="text-gray-500 dark:text-gray-400">
+                                    ({item.sku})
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-3 mt-0.5 text-gray-600 dark:text-gray-400">
+                                <span>
+                                  Qty: {item.quantity} {item.unit}
+                                </span>
+                                <span className={item.isLowStock ? 'text-red-600 dark:text-red-400 font-medium' : ''}>
+                                  Available: {item.available} {item.unit}
+                                </span>
+                                {item.threshold > 0 && (
+                                  <span className="text-gray-500 dark:text-gray-400">
+                                    Threshold: {item.threshold}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1 ml-2">
+                              <button
+                                onClick={() => handleEdit(item)}
+                                className="p-1 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded"
+                                title="Edit"
+                              >
+                                <Edit2 className="h-3 w-3" />
+                              </button>
+                              <button
+                                onClick={() => handleDelete(item.id)}
+                                className="p-1 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
+                                title="Delete"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+
+            {/* Unassigned items */}
+            {filterItems(itemsByJobType['unassigned'] || []).length > 0 && (
+              <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+                <div
+                  className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-900 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
+                  onClick={() => toggleJobType('unassigned')}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                      {expandedJobTypes.has('unassigned') ? '▼' : '▶'}
+                    </span>
+                    <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
+                      Unassigned
+                    </h3>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      ({filterItems(itemsByJobType['unassigned'] || []).length} items)
+                    </span>
+                  </div>
+                </div>
+                {expandedJobTypes.has('unassigned') && (
+                  <div className="p-2">
+                    <div className="grid grid-cols-1 gap-1">
+                      {filterItems(itemsByJobType['unassigned'] || []).map((item) => (
+                        <div
+                          key={item.id}
+                          className={`flex items-center justify-between p-2 rounded text-xs hover:bg-gray-50 dark:hover:bg-gray-700 ${
+                            item.isLowStock ? 'bg-red-50 dark:bg-red-900/10' : ''
+                          }`}
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium text-gray-900 dark:text-white truncate">
+                                {item.name}
+                              </span>
+                              {item.isLowStock && (
+                                <AlertTriangle className="h-3 w-3 text-red-600 dark:text-red-400 flex-shrink-0" />
+                              )}
+                            </div>
+                            <div className="flex items-center gap-3 mt-0.5 text-gray-600 dark:text-gray-400">
+                              <span>
+                                Qty: {item.quantity} {item.unit}
+                              </span>
+                              <span className={item.isLowStock ? 'text-red-600 dark:text-red-400 font-medium' : ''}>
+                                Available: {item.available} {item.unit}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1 ml-2">
+                            <button
+                              onClick={() => handleEdit(item)}
+                              className="p-1 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded"
+                              title="Edit"
+                            >
+                              <Edit2 className="h-3 w-3" />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(item.id)}
+                              className="p-1 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
+                              title="Delete"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Inventory Form Modal */}
       {showForm && (
         <InventoryForm
           item={editingItem}
+          defaultJobTypeId={selectedJobTypeId}
           onClose={handleFormClose}
           onSave={handleFormClose}
+        />
+      )}
+
+      {/* Job Type Manager Modal */}
+      {showJobTypeManager && (
+        <JobTypeManager
+          onClose={() => setShowJobTypeManager(false)}
+          onSave={() => {
+            setShowJobTypeManager(false)
+            fetchJobTypes()
+          }}
+        />
+      )}
+
+      {/* Package Manager Modal */}
+      {showPackageManager && packageManagerJobTypeId && (
+        <InventoryPackageManager
+          jobTypeId={packageManagerJobTypeId}
+          onClose={() => {
+            setShowPackageManager(false)
+            setPackageManagerJobTypeId(null)
+          }}
+          onSave={() => {
+            setShowPackageManager(false)
+            setPackageManagerJobTypeId(null)
+          }}
         />
       )}
     </div>
   )
 }
-

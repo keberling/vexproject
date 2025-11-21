@@ -25,6 +25,9 @@ export default function InventoryAssignmentForm({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [available, setAvailable] = useState(0)
+  const [units, setUnits] = useState<any[]>([])
+  const [selectedUnitIds, setSelectedUnitIds] = useState<string[]>([])
+  const [itemDetails, setItemDetails] = useState<any>(null)
 
   useEffect(() => {
     if (projectId) {
@@ -54,7 +57,18 @@ export default function InventoryAssignmentForm({
       const response = await fetch(`/api/inventory/${inventoryItem.id}`)
       if (response.ok) {
         const data = await response.json()
+        setItemDetails(data.item)
         setAvailable(data.item.available || 0)
+
+        // If item tracks serial numbers, fetch available units
+        if (data.item.trackSerialNumbers) {
+          const unitsResponse = await fetch(`/api/inventory/units?inventoryItemId=${inventoryItem.id}`)
+          if (unitsResponse.ok) {
+            const unitsData = await unitsResponse.json()
+            const availableUnits = unitsData.units.filter((u: any) => u.status === 'AVAILABLE')
+            setUnits(availableUnits)
+          }
+        }
       }
     } catch (error) {
       console.error('Error fetching available quantity:', error)
@@ -72,42 +86,84 @@ export default function InventoryAssignmentForm({
       return
     }
 
-    if (quantity <= 0) {
-      setError('Quantity must be greater than 0')
-      setLoading(false)
-      return
-    }
-
-    if (quantity > available) {
-      setError(`Insufficient inventory. Available: ${available}`)
-      setLoading(false)
-      return
-    }
-
-    try {
-      const response = await fetch('/api/inventory/assignments', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          inventoryItemId: inventoryItem.id,
-          milestoneId: selectedMilestoneId,
-          quantity,
-          notes: notes || null,
-        }),
-      })
-
-      if (!response.ok) {
-        const data = await response.json()
-        throw new Error(data.error || 'Failed to assign inventory')
+    // If tracking serial numbers, assign by units
+    if (itemDetails?.trackSerialNumbers) {
+      if (selectedUnitIds.length === 0) {
+        setError('Please select at least one unit to assign')
+        setLoading(false)
+        return
       }
 
-      onSave()
-    } catch (err: any) {
-      setError(err.message || 'Error assigning inventory')
-    } finally {
-      setLoading(false)
+      try {
+        // Assign each selected unit
+        const assignments = await Promise.all(
+          selectedUnitIds.map((unitId) =>
+            fetch('/api/inventory/assignments', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                inventoryItemId: inventoryItem.id,
+                inventoryUnitId: unitId,
+                milestoneId: selectedMilestoneId,
+                notes: notes || null,
+              }),
+            })
+          )
+        )
+
+        const failed = assignments.find((r) => !r.ok)
+        if (failed) {
+          const data = await failed.json()
+          throw new Error(data.error || 'Failed to assign inventory')
+        }
+
+        onSave()
+      } catch (err: any) {
+        setError(err.message || 'Error assigning inventory')
+      } finally {
+        setLoading(false)
+      }
+    } else {
+      // Bulk assignment
+      if (quantity <= 0) {
+        setError('Quantity must be greater than 0')
+        setLoading(false)
+        return
+      }
+
+      if (quantity > available) {
+        setError(`Insufficient inventory. Available: ${available}`)
+        setLoading(false)
+        return
+      }
+
+      try {
+        const response = await fetch('/api/inventory/assignments', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            inventoryItemId: inventoryItem.id,
+            milestoneId: selectedMilestoneId,
+            quantity,
+            notes: notes || null,
+          }),
+        })
+
+        if (!response.ok) {
+          const data = await response.json()
+          throw new Error(data.error || 'Failed to assign inventory')
+        }
+
+        onSave()
+      } catch (err: any) {
+        setError(err.message || 'Error assigning inventory')
+      } finally {
+        setLoading(false)
+      }
     }
   }
 
@@ -171,23 +227,73 @@ export default function InventoryAssignmentForm({
             </div>
           )}
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Quantity *
-            </label>
-            <input
-              type="number"
-              required
-              min="1"
-              max={available}
-              value={quantity}
-              onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-            />
-            <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              Maximum: {available} {inventoryItem.unit}
+          {itemDetails?.trackSerialNumbers ? (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Select Units by Serial Number *
+              </label>
+              {units.length === 0 ? (
+                <div className="text-sm text-gray-500 dark:text-gray-400 p-3 bg-gray-50 dark:bg-gray-700 rounded">
+                  No available units. All units are already assigned.
+                </div>
+              ) : (
+                <div className="max-h-48 overflow-y-auto border border-gray-300 dark:border-gray-600 rounded-lg">
+                  {units.map((unit) => (
+                    <label
+                      key={unit.id}
+                      className="flex items-center gap-2 p-2 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedUnitIds.includes(unit.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedUnitIds([...selectedUnitIds, unit.id])
+                          } else {
+                            setSelectedUnitIds(selectedUnitIds.filter((id) => id !== unit.id))
+                          }
+                        }}
+                        className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                      />
+                      <div className="flex-1">
+                        <div className="text-sm font-medium text-gray-900 dark:text-white">
+                          {unit.serialNumber || `Unit #${unit.id.slice(-6)}`}
+                        </div>
+                        {unit.notes && (
+                          <div className="text-xs text-gray-500 dark:text-gray-400">
+                            {unit.notes}
+                          </div>
+                        )}
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              )}
+              {selectedUnitIds.length > 0 && (
+                <div className="mt-2 text-xs text-gray-600 dark:text-gray-400">
+                  {selectedUnitIds.length} unit{selectedUnitIds.length !== 1 ? 's' : ''} selected
+                </div>
+              )}
             </div>
-          </div>
+          ) : (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Quantity *
+              </label>
+              <input
+                type="number"
+                required
+                min="1"
+                max={available}
+                value={quantity}
+                onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              />
+              <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                Maximum: {available} {inventoryItem.unit}
+              </div>
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">

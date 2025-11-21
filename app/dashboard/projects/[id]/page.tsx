@@ -19,6 +19,7 @@ export default async function ProjectDetailPage({
       id: params.id,
     },
     include: {
+      jobType: true,
       milestones: {
         orderBy: { createdAt: 'asc' },
         include: {

@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const lowStockOnly = searchParams.get('lowStockOnly') === 'true'
     const category = searchParams.get('category')
-    const jobType = searchParams.get('jobType')
+    const jobTypeId = searchParams.get('jobTypeId')
 
     const where: any = {}
     if (lowStockOnly) {
@@ -23,13 +23,14 @@ export async function GET(request: NextRequest) {
     if (category) {
       where.category = category
     }
-    if (jobType) {
-      where.jobType = jobType
+    if (jobTypeId) {
+      where.jobTypeId = jobTypeId
     }
 
     const items = await prisma.inventoryItem.findMany({
       where,
       include: {
+        jobType: true,
         _count: {
           select: { assignments: true },
         },
@@ -91,7 +92,7 @@ export async function POST(request: NextRequest) {
       description,
       sku,
       category,
-      jobType,
+      jobTypeId,
       quantity,
       threshold,
       unit,
@@ -120,7 +121,7 @@ export async function POST(request: NextRequest) {
         description: description || null,
         sku: sku || null,
         category: category || null,
-        jobType: jobType || null,
+        jobTypeId: jobTypeId || null,
         quantity: quantity || 0,
         threshold: threshold || 0,
         unit: unit || 'each',
@@ -134,6 +135,9 @@ export async function POST(request: NextRequest) {
         partNumber: partNumber || null,
         cost: cost || null,
         notes: notes || null,
+      },
+      include: {
+        jobType: true,
       },
     })
 

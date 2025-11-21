@@ -1,12 +1,13 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Package, Plus, Check, X, AlertTriangle } from 'lucide-react'
+import { Package, Plus, Check, X, AlertTriangle, Box } from 'lucide-react'
 import InventoryAssignmentForm from './inventory-assignment-form'
 
 interface ProjectInventorySelectorProps {
   projectId: string
   jobType: string | null
+  jobTypeId?: string | null
   milestoneId?: string
   onAssign?: () => void
 }
@@ -14,28 +15,34 @@ interface ProjectInventorySelectorProps {
 export default function ProjectInventorySelector({
   projectId,
   jobType,
+  jobTypeId,
   milestoneId,
   onAssign,
 }: ProjectInventorySelectorProps) {
   const [inventoryItems, setInventoryItems] = useState<any[]>([])
+  const [packages, setPackages] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [assigningItem, setAssigningItem] = useState<any>(null)
   const [quantities, setQuantities] = useState<Record<string, number>>({})
+  const [selectedPackage, setSelectedPackage] = useState<string | null>(null)
+  const [applyingPackage, setApplyingPackage] = useState(false)
 
   useEffect(() => {
-    if (jobType) {
+    if (jobTypeId) {
       fetchInventoryForJobType()
+      fetchPackages()
     } else {
       setInventoryItems([])
+      setPackages([])
     }
-  }, [jobType])
+  }, [jobTypeId])
 
   const fetchInventoryForJobType = async () => {
-    if (!jobType) return
+    if (!jobTypeId) return
 
     setLoading(true)
     try {
-      const response = await fetch(`/api/inventory/job-types?jobType=${encodeURIComponent(jobType)}`)
+      const response = await fetch(`/api/inventory?jobTypeId=${jobTypeId}`)
       if (response.ok) {
         const data = await response.json()
         setInventoryItems(data.items || [])
@@ -51,6 +58,59 @@ export default function ProjectInventorySelector({
       console.error('Error fetching inventory:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchPackages = async () => {
+    if (!jobTypeId) return
+
+    try {
+      const response = await fetch(`/api/inventory/packages?jobTypeId=${jobTypeId}`)
+      if (response.ok) {
+        const data = await response.json()
+        setPackages(data.packages || [])
+        // Set default package if available
+        const defaultPackage = data.packages?.find((p: any) => p.isDefault)
+        if (defaultPackage) {
+          setSelectedPackage(defaultPackage.id)
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching packages:', error)
+    }
+  }
+
+  const handleApplyPackage = async (packageId: string) => {
+    if (!milestoneId) {
+      alert('Please select a milestone first')
+      return
+    }
+
+    setApplyingPackage(true)
+    try {
+      const response = await fetch(`/api/inventory/packages/${packageId}/apply`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ milestoneId }),
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to apply package')
+      }
+
+      const data = await response.json()
+      alert(data.message || 'Package applied successfully')
+      setQuantities({})
+      if (onAssign) {
+        onAssign()
+      }
+    } catch (error: any) {
+      alert(error.message || 'Error applying package')
+    } finally {
+      setApplyingPackage(false)
     }
   }
 
@@ -105,7 +165,7 @@ export default function ProjectInventorySelector({
     }
   }
 
-  if (!jobType) {
+  if (!jobTypeId) {
     return (
       <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg text-center text-gray-500 dark:text-gray-400">
         <Package className="h-8 w-8 mx-auto mb-2 opacity-50" />
@@ -138,6 +198,70 @@ export default function ProjectInventorySelector({
         <h3 className="text-lg font-medium text-gray-900 dark:text-white">
           Inventory for {jobType}
         </h3>
+      </div>
+
+      {/* Package Selection */}
+      {packages.length > 0 && (
+        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Box className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+            <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-300">
+              Project Packages
+            </h4>
+          </div>
+          <p className="text-xs text-blue-800 dark:text-blue-400 mb-3">
+            Select a package to automatically assign preset quantities of all inventory items.
+          </p>
+          <div className="space-y-2">
+            {packages.map((pkg) => (
+              <div
+                key={pkg.id}
+                className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded border border-blue-200 dark:border-blue-700"
+              >
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-gray-900 dark:text-white">
+                      {pkg.name}
+                    </span>
+                    {pkg.isDefault && (
+                      <span className="text-xs px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 rounded">
+                        Default
+                      </span>
+                    )}
+                  </div>
+                  {pkg.description && (
+                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                      {pkg.description}
+                    </p>
+                  )}
+                  <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                    {pkg.items.length} item{pkg.items.length !== 1 ? 's' : ''}
+                  </p>
+                </div>
+                {milestoneId ? (
+                  <button
+                    onClick={() => handleApplyPackage(pkg.id)}
+                    disabled={applyingPackage}
+                    className="ml-3 px-3 py-1.5 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    {applyingPackage ? 'Applying...' : 'Apply Package'}
+                  </button>
+                ) : (
+                  <span className="ml-3 text-xs text-gray-500 dark:text-gray-400">
+                    Select milestone
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Manual Inventory Selection */}
+      <div className="flex items-center justify-between">
+        <h4 className="text-sm font-medium text-gray-900 dark:text-white">
+          Manual Inventory Selection
+        </h4>
         {milestoneId && (
           <button
             onClick={handleAssignAll}

@@ -5,17 +5,20 @@ import { X, Save, ExternalLink, Phone, Mail } from 'lucide-react'
 
 interface InventoryFormProps {
   item?: any
+  defaultJobTypeId?: string | null
   onClose: () => void
   onSave: () => void
 }
 
-export default function InventoryForm({ item, onClose, onSave }: InventoryFormProps) {
+export default function InventoryForm({ item, defaultJobTypeId, onClose, onSave }: InventoryFormProps) {
+  const [jobTypes, setJobTypes] = useState<any[]>([])
   const [formData, setFormData] = useState({
     name: '',
     description: '',
     sku: '',
     category: '',
-    jobType: '',
+    jobTypeId: '',
+    trackSerialNumbers: false,
     quantity: 0,
     threshold: 0,
     unit: 'each',
@@ -34,13 +37,30 @@ export default function InventoryForm({ item, onClose, onSave }: InventoryFormPr
   const [error, setError] = useState('')
 
   useEffect(() => {
+    fetchJobTypes()
+  }, [])
+
+  const fetchJobTypes = async () => {
+    try {
+      const response = await fetch('/api/job-types')
+      if (response.ok) {
+        const data = await response.json()
+        setJobTypes(data.jobTypes || [])
+      }
+    } catch (error) {
+      console.error('Error fetching job types:', error)
+    }
+  }
+
+  useEffect(() => {
     if (item) {
       setFormData({
         name: item.name || '',
         description: item.description || '',
         sku: item.sku || '',
         category: item.category || '',
-        jobType: item.jobType || '',
+        jobTypeId: item.jobTypeId || item.jobType?.id || '',
+        trackSerialNumbers: item.trackSerialNumbers || false,
         quantity: item.quantity || 0,
         threshold: item.threshold || 0,
         unit: item.unit || 'each',
@@ -55,8 +75,10 @@ export default function InventoryForm({ item, onClose, onSave }: InventoryFormPr
         cost: item.cost?.toString() || '',
         notes: item.notes || '',
       })
+    } else if (defaultJobTypeId) {
+      setFormData((prev) => ({ ...prev, jobTypeId: defaultJobTypeId }))
     }
-  }, [item])
+  }, [item, defaultJobTypeId])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -66,6 +88,7 @@ export default function InventoryForm({ item, onClose, onSave }: InventoryFormPr
     try {
       const payload = {
         ...formData,
+        jobTypeId: formData.jobTypeId || null,
         quantity: parseInt(formData.quantity.toString()) || 0,
         threshold: parseInt(formData.threshold.toString()) || 0,
         cost: formData.cost ? parseFloat(formData.cost.toString()) : null,
@@ -167,20 +190,16 @@ export default function InventoryForm({ item, onClose, onSave }: InventoryFormPr
                 </label>
                 <select
                   required
-                  value={formData.jobType}
-                  onChange={(e) => setFormData({ ...formData, jobType: e.target.value })}
+                  value={formData.jobTypeId}
+                  onChange={(e) => setFormData({ ...formData, jobTypeId: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 >
                   <option value="">Select Job Type</option>
-                  <option value="Access Control">Access Control</option>
-                  <option value="Camera">Camera</option>
-                  <option value="Network">Network</option>
-                  <option value="Audio/Video">Audio/Video</option>
-                  <option value="Intercom">Intercom</option>
-                  <option value="Fire Alarm">Fire Alarm</option>
-                  <option value="Security">Security</option>
-                  <option value="Structured Cabling">Structured Cabling</option>
-                  <option value="General">General</option>
+                  {jobTypes.map((jt) => (
+                    <option key={jt.id} value={jt.id}>
+                      {jt.name}
+                    </option>
+                  ))}
                 </select>
                 <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                   Items will be grouped by job type in projects
@@ -265,6 +284,23 @@ export default function InventoryForm({ item, onClose, onSave }: InventoryFormPr
                 />
                 <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                   Alert when available quantity drops below this
+                </p>
+              </div>
+
+              <div>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.trackSerialNumbers}
+                    onChange={(e) => setFormData({ ...formData, trackSerialNumbers: e.target.checked })}
+                    className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                  />
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Track Serial Numbers
+                  </span>
+                </label>
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400 ml-6">
+                  Enable this to track individual units with serial numbers. Each unit can be assigned separately to projects.
                 </p>
               </div>
 

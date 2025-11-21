@@ -15,12 +15,26 @@ export async function GET(request: NextRequest) {
     const jobType = searchParams.get('jobType')
 
     if (jobType) {
-      // Get items for specific job type
+      // Get items for specific job type (by ID or name)
+      const jobTypeRecord = await prisma.jobType.findFirst({
+        where: {
+          OR: [
+            { id: jobType },
+            { name: jobType },
+          ],
+        },
+      })
+
+      if (!jobTypeRecord) {
+        return NextResponse.json({ items: [] })
+      }
+
       const items = await prisma.inventoryItem.findMany({
         where: {
-          jobType: jobType,
+          jobTypeId: jobTypeRecord.id,
         },
         include: {
+          jobType: true,
           _count: {
             select: { assignments: true },
           },
@@ -56,21 +70,21 @@ export async function GET(request: NextRequest) {
 
       return NextResponse.json({ items: itemsWithAvailable })
     } else {
-      // Get all unique job types
-      const items = await prisma.inventoryItem.findMany({
-        where: {
-          jobType: { not: null },
+      // Get all job types
+      const jobTypes = await prisma.jobType.findMany({
+        orderBy: [
+          { order: 'asc' },
+          { name: 'asc' },
+        ],
+        include: {
+          _count: {
+            select: {
+              inventoryItems: true,
+              projects: true,
+            },
+          },
         },
-        select: {
-          jobType: true,
-        },
-        distinct: ['jobType'],
       })
-
-      const jobTypes = items
-        .map((item) => item.jobType)
-        .filter(Boolean)
-        .sort()
 
       return NextResponse.json({ jobTypes })
     }

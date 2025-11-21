@@ -38,7 +38,8 @@ model Project {
   name          String
   address       String?
   description   String?
-  jobType       String?   // Job type (e.g., "Access Control", "Camera", "Network", etc.)
+  jobTypeId     String?   // Job type reference
+  jobType       JobType?  @relation(fields: [jobTypeId], references: [id], onDelete: SetNull)
   gcContactName     String?   // GC Contact Name
   gcContactEmail    String?   // GC Contact Email
   cdsContactName     String?   // CDS Contact Name
@@ -264,16 +265,56 @@ model TaskFile {
   sharepointUrl String?
 }
 
+model JobType {
+  id            String    @id @default(cuid())
+  name          String    @unique
+  description   String?
+  color         String?   // Optional color for UI display
+  order         Int       @default(0) // Display order
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  inventoryItems InventoryItem[]
+  projects      Project[]
+  packages      InventoryPackage[]
+}
+
+model InventoryPackage {
+  id            String    @id @default(cuid())
+  name          String
+  description   String?
+  jobTypeId     String
+  jobType       JobType   @relation(fields: [jobTypeId], references: [id], onDelete: Cascade)
+  isDefault     Boolean   @default(false) // Default package for this job type
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  items         InventoryPackageItem[]
+}
+
+model InventoryPackageItem {
+  id            String    @id @default(cuid())
+  packageId     String
+  package       InventoryPackage @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  inventoryItemId String
+  inventoryItem InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Cascade)
+  quantity      Int       @default(1) // Quantity of this item in the package
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@unique([packageId, inventoryItemId])
+}
+
 model InventoryItem {
   id            String    @id @default(cuid())
   name          String
   description   String?
   sku           String?   // Stock Keeping Unit / Part Number
   category      String?   // Category for grouping items
-  jobType       String?   // Job type this item is used for (e.g., "Access Control", "Camera", "Network", etc.)
+  jobTypeId     String?   // Job type this item is used for
+  jobType       JobType?  @relation(fields: [jobTypeId], references: [id], onDelete: SetNull)
   quantity      Int       @default(0) // Current available quantity
   threshold     Int       @default(0) // Re-order threshold (show alert when quantity < threshold)
   unit          String    @default("each") // Unit of measurement (each, box, case, etc.)
+  trackSerialNumbers Boolean @default(false) // Whether to track individual units with serial numbers
   location      String?   // Storage location
   supplier      String?   // Supplier/Manufacturer name
   distributor   String?   // Distributor name (where to order from)
@@ -287,11 +328,25 @@ model InventoryItem {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   assignments   InventoryAssignment[]
+  units         InventoryUnit[]
+  packageItems  InventoryPackageItem[]
+}
+
+model InventoryUnit {
+  id            String    @id @default(cuid())
+  serialNumber  String?   // Serial number for this specific unit
+  status        String    @default("AVAILABLE") // AVAILABLE, ASSIGNED, USED, RETURNED
+  notes         String?   // Notes specific to this unit
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  inventoryItemId String
+  inventoryItem InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Cascade)
+  assignment    InventoryAssignment?
 }
 
 model InventoryAssignment {
   id            String    @id @default(cuid())
-  quantity      Int       // Quantity assigned to this milestone
+  quantity      Int       // Quantity assigned to this milestone (for bulk items without serial numbers)
   status        String    @default("ASSIGNED") // ASSIGNED, USED, RETURNED
   assignedAt    DateTime  @default(now())
   usedAt        DateTime? // When the inventory was actually used
@@ -301,6 +356,8 @@ model InventoryAssignment {
   updatedAt     DateTime  @updatedAt
   inventoryItemId String
   inventoryItem InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Cascade)
+  inventoryUnitId String? // If assigned by serial number, reference the unit
+  inventoryUnit InventoryUnit? @relation(fields: [inventoryUnitId], references: [id], onDelete: SetNull)
   milestoneId   String
   milestone     Milestone @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
 }
