@@ -465,15 +465,13 @@ export default function InventoryPage() {
                                     <Box className="h-3 w-3" />
                                   </button>
                                 )}
-                                {item.trackSerialNumbers && (
-                                  <button
-                                    onClick={() => handleAddUnits(item)}
-                                    className="p-1 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 rounded"
-                                    title="Add Units"
-                                  >
-                                    <Plus className="h-3 w-3" />
-                                  </button>
-                                )}
+                                <button
+                                  onClick={() => handleAddUnits(item)}
+                                  className="p-1 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 rounded"
+                                  title="Add Units"
+                                >
+                                  <Plus className="h-3 w-3" />
+                                </button>
                                 <button
                                   onClick={() => handleEdit(item)}
                                   className="p-1 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded"
@@ -504,11 +502,33 @@ export default function InventoryPage() {
                                           : 'bg-white dark:bg-gray-800'
                                       }`}
                                     >
-                                      <div className="flex items-center gap-2">
+                                      <div className="flex items-center gap-2 flex-1">
                                         <span className="text-gray-400">•</span>
-                                        <span className="font-medium text-gray-900 dark:text-white">
-                                          {unit.assetTag || unit.serialNumber || `Unit #${unit.id.slice(-6)}`}
-                                        </span>
+                                        <div className="flex items-center gap-3 flex-1">
+                                          {unit.assetTag ? (
+                                            <div className="flex items-center gap-1">
+                                              <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">Asset Tag:</span>
+                                              <span className="font-semibold text-gray-900 dark:text-white">
+                                                {unit.assetTag}
+                                              </span>
+                                            </div>
+                                          ) : (
+                                            <span className="text-xs text-gray-400 dark:text-gray-500 italic">No Asset Tag</span>
+                                          )}
+                                          {unit.serialNumber && (
+                                            <div className="flex items-center gap-1">
+                                              <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">Serial:</span>
+                                              <span className="text-gray-700 dark:text-gray-300">
+                                                {unit.serialNumber}
+                                              </span>
+                                            </div>
+                                          )}
+                                          {!unit.assetTag && !unit.serialNumber && (
+                                            <span className="text-gray-500 dark:text-gray-400 text-xs italic">
+                                              Unit #{unit.id.slice(-6)}
+                                            </span>
+                                          )}
+                                        </div>
                                         {unit.notes && (
                                           <span className="text-gray-500 dark:text-gray-400 text-xs">
                                             - {unit.notes}
@@ -556,13 +576,28 @@ export default function InventoryPage() {
                                                   // Find the assignment for this unit
                                                   let assignmentId = unit.assignment?.id
                                                   
-                                                  // If assignment not loaded, fetch it
+                                                  // If assignment not loaded, fetch it by asset tag or unit ID
                                                   if (!assignmentId) {
-                                                    const assignmentResponse = await fetch(`/api/inventory/assignments?inventoryItemId=${item.id}`)
-                                                    if (assignmentResponse.ok) {
-                                                      const assignmentData = await assignmentResponse.json()
-                                                      const assignment = assignmentData.assignments?.find((a: any) => a.inventoryUnitId === unit.id)
-                                                      assignmentId = assignment?.id
+                                                    // Try to find by asset tag first (preferred method)
+                                                    if (unit.assetTag) {
+                                                      const assignmentResponse = await fetch(`/api/inventory/assignments?assetTag=${encodeURIComponent(unit.assetTag)}`)
+                                                      if (assignmentResponse.ok) {
+                                                        const assignmentData = await assignmentResponse.json()
+                                                        const assignment = assignmentData.assignments?.find((a: any) => 
+                                                          a.inventoryUnit?.assetTag === unit.assetTag
+                                                        )
+                                                        assignmentId = assignment?.id
+                                                      }
+                                                    }
+                                                    
+                                                    // Fallback to finding by unit ID
+                                                    if (!assignmentId) {
+                                                      const assignmentResponse = await fetch(`/api/inventory/assignments?inventoryItemId=${item.id}`)
+                                                      if (assignmentResponse.ok) {
+                                                        const assignmentData = await assignmentResponse.json()
+                                                        const assignment = assignmentData.assignments?.find((a: any) => a.inventoryUnitId === unit.id)
+                                                        assignmentId = assignment?.id
+                                                      }
                                                     }
                                                   }
                                                   
@@ -763,11 +798,9 @@ export default function InventoryPage() {
                                         Threshold: {item.threshold}
                                       </span>
                                     )}
-                                    {item.trackSerialNumbers && (
-                                      <span className="text-gray-500 dark:text-gray-400">
-                                        {units.length} unit{units.length !== 1 ? 's' : ''}
-                                      </span>
-                                    )}
+                                    <span className="text-gray-500 dark:text-gray-400">
+                                      {units.length} unit{units.length !== 1 ? 's' : ''}
+                                    </span>
                                   </div>
                                 </div>
                                 <div className="flex items-center gap-1 ml-2">
@@ -780,15 +813,13 @@ export default function InventoryPage() {
                                       <Box className="h-3 w-3" />
                                     </button>
                                   )}
-                                  {item.trackSerialNumbers && (
-                                    <button
-                                      onClick={() => handleAddUnits(item)}
-                                      className="p-1 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 rounded"
-                                      title="Add Units"
-                                    >
-                                      <Plus className="h-3 w-3" />
-                                    </button>
-                                  )}
+                                  <button
+                                    onClick={() => handleAddUnits(item)}
+                                    className="p-1 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 rounded"
+                                    title="Add Units"
+                                  >
+                                    <Plus className="h-3 w-3" />
+                                  </button>
                                   <button
                                     onClick={() => handleEdit(item)}
                                     className="p-1 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded"

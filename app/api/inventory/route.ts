@@ -115,6 +115,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Quantity is now auto-calculated from units, so set to 0 initially
     const item = await prisma.inventoryItem.create({
       data: {
         name,
@@ -122,7 +123,7 @@ export async function POST(request: NextRequest) {
         sku: sku || null,
         category: category || null,
         jobTypeId: jobTypeId || null,
-        quantity: quantity || 0,
+        quantity: 0, // Will be auto-calculated from units
         threshold: threshold || 0,
         unit: unit || 'each',
         location: location || null,
@@ -141,7 +142,21 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    return NextResponse.json({ item }, { status: 201 })
+    // Calculate quantity from units (should be 0 for new item)
+    const unitCount = await prisma.inventoryUnit.count({
+      where: { inventoryItemId: item.id },
+    })
+
+    // Update quantity to match unit count
+    const updatedItem = await prisma.inventoryItem.update({
+      where: { id: item.id },
+      data: { quantity: unitCount },
+      include: {
+        jobType: true,
+      },
+    })
+
+    return NextResponse.json({ item: updatedItem }, { status: 201 })
   } catch (error) {
     console.error('Error creating inventory item:', error)
     return NextResponse.json(

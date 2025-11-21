@@ -140,11 +140,15 @@ export async function DELETE(
       where: { id: params.id },
     })
 
-    // Update item quantity
+    // Update item quantity to match unit count
+    const unitCount = await prisma.inventoryUnit.count({
+      where: { inventoryItemId: unit.inventoryItemId },
+    })
+    
     await prisma.inventoryItem.update({
       where: { id: unit.inventoryItemId },
       data: {
-        quantity: { decrement: 1 },
+        quantity: unitCount,
       },
     })
 

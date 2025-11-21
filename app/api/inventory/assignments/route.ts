@@ -15,6 +15,7 @@ export async function GET(request: NextRequest) {
     const projectId = searchParams.get('projectId')
     const inventoryItemId = searchParams.get('inventoryItemId')
     const status = searchParams.get('status')
+    const assetTag = searchParams.get('assetTag') // Allow searching by asset tag
 
     const where: any = {}
     if (projectId) {
@@ -26,12 +27,25 @@ export async function GET(request: NextRequest) {
     if (status) {
       where.status = status
     }
+    if (assetTag) {
+      // Find assignments by asset tag through the inventoryUnit relation
+      where.inventoryUnit = {
+        assetTag: assetTag,
+      }
+    }
 
     const assignments = await prisma.inventoryAssignment.findMany({
       where,
       include: {
         inventoryItem: true,
-        inventoryUnit: true,
+        inventoryUnit: {
+          select: {
+            id: true,
+            assetTag: true,
+            serialNumber: true,
+            status: true,
+          },
+        },
         project: {
           select: {
             id: true,

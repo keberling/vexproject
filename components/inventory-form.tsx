@@ -20,7 +20,6 @@ export default function InventoryForm({ item, defaultJobTypeId, onClose, onSave 
     category: '',
     jobTypeId: '',
     trackSerialNumbers: true, // Always enabled
-    quantity: 0,
     threshold: 0,
     unit: 'each',
     location: '',
@@ -38,7 +37,6 @@ export default function InventoryForm({ item, defaultJobTypeId, onClose, onSave 
   const [error, setError] = useState('')
   const [showSerialSelector, setShowSerialSelector] = useState(false)
   const [assignedUnits, setAssignedUnits] = useState<any[]>([])
-  const [originalQuantity, setOriginalQuantity] = useState(0)
 
   useEffect(() => {
     fetchJobTypes()
@@ -66,7 +64,6 @@ export default function InventoryForm({ item, defaultJobTypeId, onClose, onSave 
         category: item.category || '',
         jobTypeId: item.jobTypeId || item.jobType?.id || '',
         trackSerialNumbers: true, // Always enabled
-        quantity: qty,
         threshold: item.threshold || 0,
         unit: item.unit || 'each',
         location: item.location || '',
@@ -80,14 +77,14 @@ export default function InventoryForm({ item, defaultJobTypeId, onClose, onSave 
         cost: item.cost?.toString() || '',
         notes: item.notes || '',
       })
-      setOriginalQuantity(qty)
+      // Quantity is now auto-calculated from units
       // Fetch assigned units
       if (item.id) {
         fetchAssignedUnits(item.id)
       }
     } else if (defaultJobTypeId) {
       setFormData((prev) => ({ ...prev, jobTypeId: defaultJobTypeId }))
-      setOriginalQuantity(0)
+      // Quantity is now auto-calculated from units
     }
   }, [item, defaultJobTypeId])
 
@@ -132,47 +129,19 @@ export default function InventoryForm({ item, defaultJobTypeId, onClose, onSave 
     setLoading(true)
     setError('')
 
-    const newQuantity = parseInt(formData.quantity.toString()) || 0
-
-    // Check if we're reducing quantity for an item with assigned units
-    if (item && newQuantity < originalQuantity && assignedUnits.length > 0) {
-      const unitsToRemove = originalQuantity - newQuantity
-      if (unitsToRemove > 0 && unitsToRemove <= assignedUnits.length) {
-        setShowSerialSelector(true)
-        setLoading(false)
-        return
-      }
-    }
-
-    await saveItem(newQuantity)
+    await saveItem()
   }
 
-  const saveItem = async (qty: number, unitIdsToRemove: string[] = []) => {
+  const saveItem = async () => {
     setLoading(true)
     setError('')
 
     try {
-      // First, unassign selected units from projects if any
-      if (unitIdsToRemove.length > 0) {
-        for (const unitId of unitIdsToRemove) {
-          // Find the assignment for this unit
-          const unit = assignedUnits.find((u) => u.id === unitId)
-          if (unit?.assignment?.id) {
-            // Delete the assignment (which will also update unit status back to AVAILABLE)
-            const response = await fetch(`/api/inventory/assignments/${unit.assignment.id}`, {
-              method: 'DELETE',
-            })
-            if (!response.ok) {
-              throw new Error('Failed to remove unit assignment')
-            }
-          }
-        }
-      }
-
+      // Quantity is automatically calculated from units - don't send it
       const payload = {
         ...formData,
         jobTypeId: formData.jobTypeId || null,
-        quantity: qty,
+        // quantity is removed - it's auto-calculated from units
         threshold: parseInt(formData.threshold.toString()) || 0,
         cost: formData.cost ? parseFloat(formData.cost.toString()) : null,
       }
@@ -202,10 +171,6 @@ export default function InventoryForm({ item, defaultJobTypeId, onClose, onSave 
     }
   }
 
-  const handleSerialRemovalConfirm = (unitIdsToRemove: string[]) => {
-    const newQuantity = parseInt(formData.quantity.toString()) || 0
-    saveItem(newQuantity, unitIdsToRemove)
-  }
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -346,18 +311,19 @@ export default function InventoryForm({ item, defaultJobTypeId, onClose, onSave 
               Inventory Levels
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Current Quantity
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  value={formData.quantity}
-                  onChange={(e) => setFormData({ ...formData, quantity: parseInt(e.target.value) || 0 })}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                />
-              </div>
+              {item && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Current Quantity
+                  </label>
+                  <div className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300">
+                    {item.quantity || 0} {formData.unit} (auto-calculated from units)
+                  </div>
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    Quantity is automatically calculated from the number of units. Add or remove units to change quantity.
+                  </p>
+                </div>
+              )}
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -530,20 +496,6 @@ export default function InventoryForm({ item, defaultJobTypeId, onClose, onSave 
         </form>
       </div>
 
-      {/* Serial Number Removal Selector */}
-      {showSerialSelector && item && (
-        <SelectSerialsToRemove
-          inventoryItem={item}
-          currentQuantity={originalQuantity}
-          newQuantity={parseInt(formData.quantity.toString()) || 0}
-          assignedUnits={assignedUnits}
-          onClose={() => {
-            setShowSerialSelector(false)
-            setLoading(false)
-          }}
-          onConfirm={handleSerialRemovalConfirm}
-        />
-      )}
     </div>
   )
 }

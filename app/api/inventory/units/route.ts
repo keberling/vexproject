@@ -133,11 +133,15 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    // Update item quantity
+    // Update item quantity to match unit count
+    const unitCount = await prisma.inventoryUnit.count({
+      where: { inventoryItemId },
+    })
+    
     await prisma.inventoryItem.update({
       where: { id: inventoryItemId },
       data: {
-        quantity: { increment: 1 },
+        quantity: unitCount,
       },
     })
 

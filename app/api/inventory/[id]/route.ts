@@ -92,7 +92,6 @@ export async function PUT(
       category,
       jobTypeId,
       trackSerialNumbers,
-      quantity,
       threshold,
       unit,
       location,
@@ -107,6 +106,12 @@ export async function PUT(
       notes,
     } = body
 
+    // Quantity is auto-calculated from units - don't allow manual updates
+    // Calculate current unit count
+    const unitCount = await prisma.inventoryUnit.count({
+      where: { inventoryItemId: params.id },
+    })
+
     const item = await prisma.inventoryItem.update({
       where: { id: params.id },
       data: {
@@ -116,7 +121,7 @@ export async function PUT(
         ...(category !== undefined && { category: category || null }),
         ...(jobTypeId !== undefined && { jobTypeId: jobTypeId || null }),
         ...(trackSerialNumbers !== undefined && { trackSerialNumbers }),
-        ...(quantity !== undefined && { quantity }),
+        quantity: unitCount, // Auto-calculate from units
         ...(threshold !== undefined && { threshold }),
         ...(unit && { unit }),
         ...(location !== undefined && { location: location || null }),
