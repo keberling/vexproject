@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentUser } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
+// Force dynamic rendering (uses cookies)
+export const dynamic = 'force-dynamic'
+
 // GET - Get label settings (or create default if none exist)
 export async function GET(request: NextRequest) {
   try {

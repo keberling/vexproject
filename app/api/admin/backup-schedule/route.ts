@@ -3,6 +3,9 @@ import { getCurrentUser } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { scheduleBackup, stopBackupScheduler } from '@/lib/backup-scheduler'
 
+// Force dynamic rendering (uses cookies)
+export const dynamic = 'force-dynamic'
+
 // Get backup schedule (admin only)
 export async function GET(request: NextRequest) {
   try {

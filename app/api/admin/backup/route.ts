@@ -5,6 +5,9 @@ import archiver from 'archiver'
 import { createGraphClient } from '@/lib/sharepoint'
 import { uploadBackupToSharePoint } from '@/lib/sharepoint'
 
+// Force dynamic rendering (uses cookies)
+export const dynamic = 'force-dynamic'
+
 // Create database backup (admin only)
 // Exports all data via Prisma and creates a JSON backup file
 export async function POST(request: NextRequest) {

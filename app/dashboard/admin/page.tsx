@@ -3,6 +3,9 @@ import { getCurrentUser } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import AdminPage from '@/components/admin-page'
 
+// Force dynamic rendering (uses cookies)
+export const dynamic = 'force-dynamic'
+
 export default async function AdminDashboardPage() {
   const user = await getCurrentUser()
 

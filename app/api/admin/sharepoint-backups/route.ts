@@ -3,6 +3,9 @@ import { getCurrentUser } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { createGraphClient, getOrCreateBackupsFolder } from '@/lib/sharepoint'
 
+// Force dynamic rendering (uses cookies)
+export const dynamic = 'force-dynamic'
+
 // List backups from SharePoint (admin only)
 export async function GET(request: NextRequest) {
   try {

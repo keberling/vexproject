@@ -3,6 +3,9 @@ import { getCurrentUser } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import AdmZip from 'adm-zip'
 
+// Force dynamic rendering (uses cookies)
+export const dynamic = 'force-dynamic'
+
 // Restore database from backup (admin only)
 // Imports data via Prisma from JSON backup file
 export async function POST(request: NextRequest) {

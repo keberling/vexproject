@@ -4,6 +4,9 @@ import { prisma } from '@/lib/prisma'
 import { createGraphClient } from '@/lib/sharepoint'
 import AdmZip from 'adm-zip'
 
+// Force dynamic rendering (uses cookies)
+export const dynamic = 'force-dynamic'
+
 // Restore database from a SharePoint backup (admin only)
 // Imports data via Prisma from JSON backup file
 export async function POST(

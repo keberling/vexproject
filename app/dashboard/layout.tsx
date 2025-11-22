@@ -5,6 +5,9 @@ import Sidebar from '@/components/sidebar'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { SizeToggle } from '@/components/size-toggle'
 
+// Force dynamic rendering (uses cookies for authentication)
+export const dynamic = 'force-dynamic'
+
 export default async function DashboardLayout({
   children,
 }: {
