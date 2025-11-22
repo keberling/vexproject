@@ -30,16 +30,20 @@ if (
 
 // Determine if we should trust the host
 // NextAuth v5 requires explicit host trust for security
+// In production, if AUTH_URL is set, trust that host
+// Otherwise, trust in development or if AUTH_TRUST_HOST is explicitly set
 const shouldTrustHost = 
   process.env.AUTH_TRUST_HOST === 'true' || 
   process.env.AUTH_TRUST_HOST === '1' ||
   process.env.NODE_ENV === 'development' ||
-  !process.env.AUTH_URL; // If AUTH_URL is not set, assume development
+  !!process.env.AUTH_URL || // If AUTH_URL is set, trust it
+  !!process.env.NEXTAUTH_URL; // Or if NEXTAUTH_URL is set, trust it
 
 export const config: NextAuthConfig = {
   providers,
   // Trust host - required for NextAuth v5
-  // Add AUTH_TRUST_HOST="true" to .env to explicitly trust localhost
+  // In production, set AUTH_URL to your domain (e.g., "https://project.vexitey.com")
+  // Or set AUTH_TRUST_HOST="true" to trust all hosts (less secure)
   trustHost: shouldTrustHost,
   callbacks: {
     async signIn({ user, account, profile }) {
