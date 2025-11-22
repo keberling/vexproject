@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentUser } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
+// Force dynamic rendering (uses cookies)
+export const dynamic = 'force-dynamic'
+
 // GET - Get all unique job types and inventory items grouped by job type
 export async function GET(request: NextRequest) {
   try {

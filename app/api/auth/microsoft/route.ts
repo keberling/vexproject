@@ -3,6 +3,9 @@ import { auth } from '@/auth'
 import { prisma } from '@/lib/prisma'
 import { generateToken } from '@/lib/auth'
 
+// Force dynamic rendering (uses headers)
+export const dynamic = 'force-dynamic'
+
 /**
  * Get the correct base URL for redirects
  * Handles reverse proxy scenarios and production environments
