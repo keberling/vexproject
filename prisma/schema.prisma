@@ -354,6 +354,9 @@ model InventoryAssignment {
   usedAt        DateTime? // When the inventory was actually used
   returnedAt    DateTime? // When the inventory was returned (if applicable)
   notes         String?   // Additional notes about this assignment
+  qualityControl Boolean  @default(false) // Quality control performed
+  configured     Boolean  @default(false) // Item has been configured
+  shippedDate    DateTime? // Date when item was shipped
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   inventoryItemId String

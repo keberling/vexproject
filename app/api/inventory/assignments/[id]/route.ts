@@ -15,7 +15,7 @@ export async function PUT(
     }
 
     const body = await request.json()
-    const { status, quantity, notes } = body
+    const { status, quantity, notes, qualityControl, configured, shippedDate } = body
 
     const assignment = await prisma.inventoryAssignment.findUnique({
       where: { id: params.id },
@@ -72,12 +72,25 @@ export async function PUT(
     if (notes !== undefined) {
       updateData.notes = notes || null
     }
+    
+    if (qualityControl !== undefined) {
+      updateData.qualityControl = qualityControl
+    }
+    
+    if (configured !== undefined) {
+      updateData.configured = configured
+    }
+    
+    if (shippedDate !== undefined) {
+      updateData.shippedDate = shippedDate ? new Date(shippedDate) : null
+    }
 
     const updated = await prisma.inventoryAssignment.update({
       where: { id: params.id },
       data: updateData,
       include: {
         inventoryItem: true,
+        inventoryUnit: true,
         project: {
           select: {
             id: true,

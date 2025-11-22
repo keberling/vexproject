@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Package, Plus, Check, X, AlertTriangle, Box, Trash2 } from 'lucide-react'
+import { Package, Plus, Check, X, AlertTriangle, Box, Trash2, Calendar } from 'lucide-react'
 import InventoryAssignmentForm from './inventory-assignment-form'
 
 interface ProjectInventorySelectorProps {
@@ -58,10 +58,9 @@ export default function ProjectInventorySelector({
         })
         setQuantities(initialQuantities)
 
-        // Fetch units for items that track serial numbers
+        // Fetch units for items
         const unitsMap: Record<string, any[]> = {}
         for (const item of data.items || []) {
-          // Always fetch units (tracking is always enabled)
           try {
             const unitsResponse = await fetch(`/api/inventory/units?inventoryItemId=${item.id}`)
             if (unitsResponse.ok) {
@@ -81,18 +80,6 @@ export default function ProjectInventorySelector({
     }
   }
 
-  const toggleItem = (itemId: string) => {
-    setExpandedItems((prev) => {
-      const next = new Set(prev)
-      if (next.has(itemId)) {
-        next.delete(itemId)
-      } else {
-        next.add(itemId)
-      }
-      return next
-    })
-  }
-
   const fetchPackages = async () => {
     if (!jobTypeId) return
 
@@ -101,7 +88,6 @@ export default function ProjectInventorySelector({
       if (response.ok) {
         const data = await response.json()
         setPackages(data.packages || [])
-        // Set default package if available
         const defaultPackage = data.packages?.find((p: any) => p.isDefault)
         if (defaultPackage) {
           setSelectedPackage(defaultPackage.id)
@@ -158,14 +144,12 @@ export default function ProjectInventorySelector({
   const handleSelectPackage = async (packageId: string) => {
     setSelectedPackage(packageId)
     
-    // Fetch package details and prefill quantities
     try {
       const response = await fetch(`/api/inventory/packages/${packageId}`)
       if (response.ok) {
         const data = await response.json()
         const packageData = data.package
         
-        // Prefill quantities from package (but don't assign yet)
         const prefilledQuantities: Record<string, number> = {}
         packageData.items?.forEach((item: any) => {
           prefilledQuantities[item.inventoryItemId] = item.quantity
@@ -201,6 +185,7 @@ export default function ProjectInventorySelector({
       const data = await response.json()
       alert(data.message || 'Package applied successfully')
       setQuantities({})
+      fetchAssignedInventory()
       if (onAssign) {
         onAssign()
       }
@@ -258,6 +243,31 @@ export default function ProjectInventorySelector({
     }
   }
 
+  const handleUpdateAssignment = async (assignmentId: string, updates: any) => {
+    try {
+      const response = await fetch(`/api/inventory/assignments/${assignmentId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updates),
+      })
+
+      if (response.ok) {
+        fetchAssignedInventory()
+        if (onAssign) {
+          onAssign()
+        }
+      } else {
+        const data = await response.json()
+        alert(data.error || 'Failed to update assignment')
+      }
+    } catch (error) {
+      console.error('Error updating assignment:', error)
+      alert('Error updating assignment')
+    }
+  }
+
   // Group assigned inventory by item
   const assignedByItem = assignedInventory.reduce((acc, assignment) => {
     const itemId = assignment.inventoryItemId
@@ -265,31 +275,32 @@ export default function ProjectInventorySelector({
       acc[itemId] = {
         item: assignment.inventoryItem,
         assignments: [],
-        totalQuantity: 0,
         units: [] as any[],
       }
     }
     acc[itemId].assignments.push(assignment)
     if (assignment.inventoryUnit) {
-      acc[itemId].units.push(assignment.inventoryUnit)
-    } else {
-      acc[itemId].totalQuantity += assignment.quantity
+      acc[itemId].units.push({
+        unit: assignment.inventoryUnit,
+        assignment,
+      })
     }
     return acc
   }, {} as Record<string, any>)
 
+
   if (!jobTypeId) {
     return (
-      <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg text-center text-gray-500 dark:text-gray-400">
-        <Package className="h-8 w-8 mx-auto mb-2 opacity-50" />
-        <p className="text-sm">Select a job type to view available inventory</p>
+      <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg text-center text-gray-500 dark:text-gray-400 text-sm">
+        <Package className="h-6 w-6 mx-auto mb-2 opacity-50" />
+        <p>Select a job type to view available inventory</p>
       </div>
     )
   }
 
   if (loading) {
     return (
-      <div className="p-4 text-center text-gray-500 dark:text-gray-400">
+      <div className="p-4 text-center text-gray-500 dark:text-gray-400 text-sm">
         Loading inventory for {jobType}...
       </div>
     )
@@ -297,329 +308,267 @@ export default function ProjectInventorySelector({
 
   if (inventoryItems.length === 0) {
     return (
-      <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg text-center text-gray-500 dark:text-gray-400">
-        <Package className="h-8 w-8 mx-auto mb-2 opacity-50" />
-        <p className="text-sm">No inventory items found for job type: {jobType}</p>
+      <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg text-center text-gray-500 dark:text-gray-400 text-sm">
+        <Package className="h-6 w-6 mx-auto mb-2 opacity-50" />
+        <p>No inventory items found for job type: {jobType}</p>
         <p className="text-xs mt-1">Add items to inventory and assign them to this job type</p>
       </div>
     )
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-medium text-gray-900 dark:text-white">
-          Inventory for {jobType}
-        </h3>
-      </div>
-
-      {/* Assigned Inventory Section */}
-      {Object.keys(assignedByItem).length > 0 && (
-        <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
-          <h4 className="text-sm font-semibold text-green-900 dark:text-green-300 mb-3">
-            Assigned to This Project
-          </h4>
-          <div className="space-y-2">
-            {Object.values(assignedByItem).map((group: any) => {
-              const item = group.item
-              const hasSerialUnits = group.units.length > 0
-
-              return (
-                <div
-                  key={item.id}
-                  className="bg-white dark:bg-gray-800 rounded border border-green-200 dark:border-green-700 p-3"
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-gray-900 dark:text-white">
-                          {item.name}
-                        </span>
-                        {item.sku && (
-                          <span className="text-xs text-gray-500 dark:text-gray-400">
-                            ({item.sku})
-                          </span>
-                        )}
-                      </div>
-                      {hasSerialUnits ? (
-                        <div className="mt-2 space-y-1">
-                          <p className="text-xs text-gray-600 dark:text-gray-400">
-                            {group.units.length} unit{group.units.length !== 1 ? 's' : ''} assigned:
-                          </p>
-                          <ul className="pl-4 space-y-1">
-                            {group.units.map((unit: any) => {
-                              const assignment = group.assignments.find(
-                                (a: any) => a.inventoryUnitId === unit.id
-                              )
-                              return (
-                                <li
-                                  key={unit.id}
-                                  className="flex items-center justify-between text-xs"
-                                >
-                                  <span className="text-gray-700 dark:text-gray-300">
-                                    • {unit.assetTag || unit.serialNumber || `Unit #${unit.id.slice(-6)}`}
-                                  </span>
-                                  <button
-                                    onClick={() => handleUnassign(assignment.id, unit.id)}
-                                    className="ml-2 px-2 py-0.5 text-xs bg-red-600 text-white rounded hover:bg-red-700"
-                                    title="Remove from project"
-                                  >
-                                    Remove
-                                  </button>
-                                </li>
-                              )
-                            })}
-                          </ul>
-                        </div>
-                      ) : (
-                        <div className="mt-1 flex items-center gap-2">
-                          <span className="text-xs text-gray-600 dark:text-gray-400">
-                            Quantity: {group.totalQuantity} {item.unit}
-                          </span>
-                          {group.assignments.map((assignment: any) => (
-                            <button
-                              key={assignment.id}
-                              onClick={() => handleUnassign(assignment.id)}
-                              className="px-2 py-0.5 text-xs bg-red-600 text-white rounded hover:bg-red-700 flex items-center gap-1"
-                              title="Remove from project"
-                            >
-                              <Trash2 className="h-3 w-3" />
-                              Remove
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Package Selection */}
+    <div className="space-y-3">
+      {/* Package Selection - Compact */}
       {packages.length > 0 && (
-        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <Box className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-            <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-300">
-              Project Packages
-            </h4>
+        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded p-2">
+          <div className="flex items-center gap-2 mb-2">
+            <Box className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+            <span className="text-xs font-medium text-blue-900 dark:text-blue-300">Packages:</span>
           </div>
-          <p className="text-xs text-blue-800 dark:text-blue-400 mb-3">
-            Select a package to automatically assign preset quantities of all inventory items.
-          </p>
-          <div className="space-y-2">
+          <div className="flex items-center gap-2 flex-wrap">
             {packages.map((pkg) => (
-              <div
-                key={pkg.id}
-                className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded border border-blue-200 dark:border-blue-700"
-              >
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-gray-900 dark:text-white">
-                      {pkg.name}
-                    </span>
-                    {pkg.isDefault && (
-                      <span className="text-xs px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 rounded">
-                        Default
-                      </span>
-                    )}
-                  </div>
-                  {pkg.description && (
-                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                      {pkg.description}
-                    </p>
-                  )}
-                  <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
-                    {pkg.items.length} item{pkg.items.length !== 1 ? 's' : ''}
-                  </p>
-                </div>
-                <div className="ml-3 flex items-center gap-2">
+              <div key={pkg.id} className="flex items-center gap-1">
+                <button
+                  onClick={() => handleSelectPackage(pkg.id)}
+                  className={`px-2 py-0.5 text-xs rounded ${
+                    selectedPackage === pkg.id
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                  }`}
+                >
+                  {pkg.name}{pkg.isDefault && ' (Default)'}
+                </button>
+                {selectedPackage === pkg.id && (
                   <button
-                    onClick={() => handleSelectPackage(pkg.id)}
-                    className={`px-3 py-1.5 text-xs rounded ${
-                      selectedPackage === pkg.id
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                    }`}
+                    onClick={handleApplyPackage}
+                    disabled={applyingPackage}
+                    className="px-2 py-0.5 bg-green-600 text-white text-xs rounded hover:bg-green-700 disabled:opacity-50"
                   >
-                    {selectedPackage === pkg.id ? 'Selected' : 'Select'}
+                    {applyingPackage ? 'Applying...' : 'Apply'}
                   </button>
-                  {selectedPackage === pkg.id && (
-                    <button
-                      onClick={handleApplyPackage}
-                      disabled={applyingPackage}
-                      className="px-3 py-1.5 bg-green-600 text-white text-xs rounded hover:bg-green-700 disabled:opacity-50"
-                    >
-                      {applyingPackage ? 'Applying...' : 'Apply'}
-                    </button>
-                  )}
-                </div>
+                )}
               </div>
             ))}
           </div>
         </div>
       )}
 
-      {/* Manual Inventory Selection */}
-      <div className="flex items-center justify-between">
-        <h4 className="text-sm font-medium text-gray-900 dark:text-white">
-          Manual Inventory Selection
-        </h4>
-        <button
-          onClick={handleAssignAll}
-          disabled={loading}
-          className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:opacity-50"
-        >
-          <Check className="h-4 w-4" />
-          Assign Selected
-        </button>
-      </div>
+      {/* Simplified List View */}
+      <div className="space-y-1">
+        {/* Table Header */}
+        <div className="grid grid-cols-12 gap-2 text-xs font-medium text-gray-700 dark:text-gray-300 pb-1 border-b border-gray-200 dark:border-gray-700">
+          <div className="col-span-3">Product</div>
+          <div className="col-span-2">Assigned</div>
+          <div className="col-span-1 text-center">QC</div>
+          <div className="col-span-1 text-center">Config</div>
+          <div className="col-span-2">Shipped</div>
+          <div className="col-span-3">Actions</div>
+        </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {inventoryItems.map((item) => {
-          const isItemExpanded = expandedItems.has(item.id)
+        {/* Inventory Items List */}
+        {inventoryItems.flatMap((item) => {
+          const assigned = assignedByItem[item.id]
           const units = itemUnits[item.id] || []
-          const hasUnits = units.length > 0
-          const availableUnits = units.filter((u) => u.status === 'AVAILABLE')
+          const availableUnits = units.filter((u: any) => u.status === 'AVAILABLE')
+          const isAssigned = assigned && (assigned.units.length > 0 || assigned.assignments.some((a: any) => a.quantity > 0))
+          
+          // Determine status color
+          let statusColor = 'yellow' // not assigned
+          if (isAssigned) {
+            statusColor = 'green' // assigned
+          } else if (units.length > 0 && availableUnits.length === 0) {
+            statusColor = 'red' // out of stock but needed
+          }
 
-          return (
-            <div
-              key={item.id}
-              className={`p-4 border rounded-lg ${
-                item.isLowStock
-                  ? 'border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-900/10'
-                  : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800'
-              }`}
-            >
-              <div className="flex items-start justify-between mb-2">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    {hasUnits && (
-                      <button
-                        onClick={() => toggleItem(item.id)}
-                        className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                      >
-                        <span className="text-xs">{isItemExpanded ? '▼' : '▶'}</span>
-                      </button>
-                    )}
-                    <h4 className="font-medium text-gray-900 dark:text-white">
-                      {item.name}
-                    </h4>
-                    {item.isLowStock && (
-                      <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400" />
+          // Get status indicator
+          const getStatusIndicator = () => {
+            if (statusColor === 'red') {
+              return <span className="inline-block w-2 h-2 rounded-full bg-red-500"></span>
+            } else if (statusColor === 'green') {
+              return <span className="inline-block w-2 h-2 rounded-full bg-green-500"></span>
+            } else {
+              return <span className="inline-block w-2 h-2 rounded-full bg-yellow-500"></span>
+            }
+          }
+
+          // If assigned, render each assignment as a separate row
+          if (assigned && assigned.assignments.length > 0) {
+            return assigned.assignments.map((assignment: any) => {
+              const unit = assignment.inventoryUnit
+              const hasUnit = !!unit
+              
+              return (
+                <div
+                  key={assignment.id}
+                  className={`grid grid-cols-12 gap-2 items-center py-1.5 px-2 text-xs rounded ${
+                    statusColor === 'green'
+                      ? 'bg-green-50 dark:bg-green-900/10'
+                      : 'bg-gray-50 dark:bg-gray-800'
+                  }`}
+                >
+                  {/* Product Name */}
+                  <div className="col-span-3 flex items-center gap-1.5">
+                    {getStatusIndicator()}
+                    <span className="font-medium text-gray-900 dark:text-white">{item.name}</span>
+                    {item.sku && (
+                      <span className="text-gray-500 dark:text-gray-400">({item.sku})</span>
                     )}
                   </div>
-                  {item.sku && (
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      SKU: {item.sku}
-                    </p>
-                  )}
-                </div>
-              </div>
 
-              <div className="mt-2 space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600 dark:text-gray-400">Available:</span>
-                  <span
-                    className={
-                      item.isLowStock
-                        ? 'font-medium text-red-600 dark:text-red-400'
-                        : 'font-medium text-gray-900 dark:text-white'
-                    }
-                  >
-                    {hasUnits ? `${availableUnits.length} unit${availableUnits.length !== 1 ? 's' : ''}` : `${item.available} ${item.unit}`}
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-2 mt-3">
-                  <label className="text-xs text-gray-600 dark:text-gray-400 flex-1">
-                    {hasUnits ? 'Select units:' : 'Quantity to assign:'}
-                  </label>
-                  {!hasUnits && (
-                    <>
-                      <input
-                        type="number"
-                        min="0"
-                        max={item.available}
-                        value={quantities[item.id] || 0}
-                        onChange={(e) =>
-                          handleQuantityChange(item.id, parseInt(e.target.value) || 0)
-                        }
-                        className="w-20 px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                      />
-                      <span className="text-xs text-gray-500 dark:text-gray-400">
-                        {item.unit}
+                  {/* Assigned Unit/Quantity */}
+                  <div className="col-span-2">
+                    {hasUnit ? (
+                      <span className="text-gray-700 dark:text-gray-300">
+                        {unit.assetTag || unit.serialNumber || `Unit #${unit.id.slice(-6)}`}
                       </span>
-                    </>
-                  )}
-                  {hasUnits && (
+                    ) : assignment.quantity > 0 ? (
+                      <span className="text-gray-700 dark:text-gray-300">
+                        {assignment.quantity} {item.unit}
+                      </span>
+                    ) : (
+                      <span className="text-gray-400 dark:text-gray-500">—</span>
+                    )}
+                  </div>
+
+                  {/* Quality Control Checkbox */}
+                  <div className="col-span-1 flex justify-center">
+                    <input
+                      type="checkbox"
+                      checked={assignment.qualityControl || false}
+                      onChange={(e) => handleUpdateAssignment(assignment.id, { qualityControl: e.target.checked })}
+                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    />
+                  </div>
+
+                  {/* Configured Checkbox */}
+                  <div className="col-span-1 flex justify-center">
+                    <input
+                      type="checkbox"
+                      checked={assignment.configured || false}
+                      onChange={(e) => handleUpdateAssignment(assignment.id, { configured: e.target.checked })}
+                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    />
+                  </div>
+
+                  {/* Shipped Date */}
+                  <div className="col-span-2 flex items-center gap-1">
+                    <input
+                      type="checkbox"
+                      checked={!!assignment.shippedDate}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          handleUpdateAssignment(assignment.id, { shippedDate: new Date().toISOString() })
+                        } else {
+                          handleUpdateAssignment(assignment.id, { shippedDate: null })
+                        }
+                      }}
+                      className="w-3 h-3 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    />
+                    {assignment.shippedDate && (
+                      <input
+                        type="date"
+                        value={assignment.shippedDate ? new Date(assignment.shippedDate).toISOString().split('T')[0] : ''}
+                        onChange={(e) => handleUpdateAssignment(assignment.id, { shippedDate: e.target.value ? new Date(e.target.value).toISOString() : null })}
+                        className="flex-1 px-1 py-0.5 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      />
+                    )}
+                  </div>
+
+                  {/* Actions */}
+                  <div className="col-span-3 flex items-center gap-1">
                     <button
-                      onClick={() => setAssigningItem(item)}
-                      className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
+                      onClick={() => handleUnassign(assignment.id, assignment.inventoryUnitId)}
+                      className="px-1.5 py-0.5 text-xs bg-red-600 text-white rounded hover:bg-red-700"
+                      title="Remove"
                     >
-                      Select Units
+                      <Trash2 className="h-3 w-3" />
                     </button>
-                  )}
+                  </div>
                 </div>
+              )
+            })
+          }
+
+          // If not assigned, render single row for unassigned item
+          return [
+            <div
+              key={item.id}
+              className={`grid grid-cols-12 gap-2 items-center py-1.5 px-2 text-xs rounded ${
+                statusColor === 'red'
+                  ? 'bg-red-50 dark:bg-red-900/10'
+                  : 'bg-gray-50 dark:bg-gray-800'
+              }`}
+            >
+              {/* Product Name */}
+              <div className="col-span-3 flex items-center gap-1.5">
+                {getStatusIndicator()}
+                <span className="font-medium text-gray-900 dark:text-white">{item.name}</span>
+                {item.sku && (
+                  <span className="text-gray-500 dark:text-gray-400">({item.sku})</span>
+                )}
               </div>
 
-              {/* Units List */}
-              {isItemExpanded && hasUnits && (
-                <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
-                  <ul className="space-y-1">
-                    {units.map((unit) => (
-                      <li
-                        key={unit.id}
-                        className={`flex items-center justify-between text-xs py-1 px-2 rounded ${
-                          unit.status === 'ASSIGNED'
-                            ? 'bg-blue-50 dark:bg-blue-900/20'
-                            : unit.status === 'USED'
-                            ? 'bg-gray-100 dark:bg-gray-700'
-                            : 'bg-white dark:bg-gray-800'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2">
-                          <span className="text-gray-400">•</span>
-                          <span className="font-medium text-gray-900 dark:text-white">
-                            {unit.serialNumber || `Unit #${unit.id.slice(-6)}`}
-                          </span>
-                          {unit.notes && (
-                            <span className="text-gray-500 dark:text-gray-400 text-xs">
-                              - {unit.notes}
-                            </span>
-                          )}
-                        </div>
-                        <span
-                          className={`text-xs px-1.5 py-0.5 rounded ${
-                            unit.status === 'AVAILABLE'
-                              ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300'
-                              : unit.status === 'ASSIGNED'
-                              ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300'
-                              : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
-                          }`}
-                        >
-                          {unit.status}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
+              {/* Assigned - Empty */}
+              <div className="col-span-2">
+                <span className="text-gray-400 dark:text-gray-500">—</span>
+              </div>
 
-              {item.distributor && (
-                <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Distributor: {item.distributor}
-                  </p>
-                </div>
-              )}
+              {/* Quality Control - Empty */}
+              <div className="col-span-1 flex justify-center">
+                <span className="text-gray-300 dark:text-gray-600">—</span>
+              </div>
+
+              {/* Configured - Empty */}
+              <div className="col-span-1 flex justify-center">
+                <span className="text-gray-300 dark:text-gray-600">—</span>
+              </div>
+
+              {/* Shipped - Empty */}
+              <div className="col-span-2">
+                <span className="text-gray-300 dark:text-gray-600">—</span>
+              </div>
+
+              {/* Actions */}
+              <div className="col-span-3 flex items-center gap-1">
+                {units.length > 0 ? (
+                  <button
+                    onClick={() => setAssigningItem(item)}
+                    className="px-2 py-0.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
+                  >
+                    Assign Unit
+                  </button>
+                ) : (
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="number"
+                      min="0"
+                      max={item.available}
+                      value={quantities[item.id] || 0}
+                      onChange={(e) => handleQuantityChange(item.id, parseInt(e.target.value) || 0)}
+                      className="w-12 px-1 py-0.5 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    />
+                    <span className="text-xs text-gray-500 dark:text-gray-400">{item.unit}</span>
+                  </div>
+                )}
+              </div>
             </div>
-          )
+          ]
         })}
       </div>
+
+      {/* Assign Selected Button */}
+      {Object.values(quantities).some(qty => qty > 0) && (
+        <div className="flex justify-end pt-2">
+          <button
+            onClick={handleAssignAll}
+            disabled={loading}
+            className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700 disabled:opacity-50"
+          >
+            <Check className="h-3 w-3" />
+            Assign Selected
+          </button>
+        </div>
+      )}
 
       {assigningItem && (
         <InventoryAssignmentForm
@@ -629,6 +578,7 @@ export default function ProjectInventorySelector({
           onSave={() => {
             setAssigningItem(null)
             fetchInventoryForJobType()
+            fetchAssignedInventory()
             if (onAssign) {
               onAssign()
             }
@@ -638,4 +588,3 @@ export default function ProjectInventorySelector({
     </div>
   )
 }
-
