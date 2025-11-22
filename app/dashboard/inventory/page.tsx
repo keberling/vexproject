@@ -519,21 +519,19 @@ export default function InventoryPage() {
                                       <div className="flex items-center gap-2 flex-1">
                                         <span className="text-gray-400">•</span>
                                         <div className="flex items-center gap-3 flex-1">
-                                          {unit.assetTag ? (
-                                            <div className="flex items-center gap-1">
-                                              <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">Asset Tag:</span>
-                                              <span className="font-semibold text-gray-900 dark:text-white">
-                                                {unit.assetTag}
-                                              </span>
-                                            </div>
-                                          ) : (
-                                            <span className="text-xs text-gray-400 dark:text-gray-500 italic">No Asset Tag</span>
-                                          )}
                                           {unit.serialNumber && (
                                             <div className="flex items-center gap-1">
                                               <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">Serial:</span>
                                               <span className="text-gray-700 dark:text-gray-300">
                                                 {unit.serialNumber}
+                                              </span>
+                                            </div>
+                                          )}
+                                          {unit.assetTag && (
+                                            <div className="flex items-center gap-1">
+                                              <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">Asset Tag:</span>
+                                              <span className="font-semibold text-gray-900 dark:text-white">
+                                                {unit.assetTag}
                                               </span>
                                             </div>
                                           )}
@@ -864,11 +862,31 @@ export default function InventoryPage() {
                                             : 'bg-white dark:bg-gray-800'
                                         }`}
                                       >
-                                        <div className="flex items-center gap-2">
+                                        <div className="flex items-center gap-2 flex-1">
                                           <span className="text-gray-400">•</span>
-                                          <span className="font-medium text-gray-900 dark:text-white">
-                                            {unit.assetTag || unit.serialNumber || `Unit #${unit.id.slice(-6)}`}
-                                          </span>
+                                          <div className="flex items-center gap-3 flex-1">
+                                            {unit.serialNumber && (
+                                              <div className="flex items-center gap-1">
+                                                <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">Serial:</span>
+                                                <span className="text-gray-700 dark:text-gray-300">
+                                                  {unit.serialNumber}
+                                                </span>
+                                              </div>
+                                            )}
+                                            {unit.assetTag && (
+                                              <div className="flex items-center gap-1">
+                                                <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">Asset Tag:</span>
+                                                <span className="font-semibold text-gray-900 dark:text-white">
+                                                  {unit.assetTag}
+                                                </span>
+                                              </div>
+                                            )}
+                                            {!unit.assetTag && !unit.serialNumber && (
+                                              <span className="text-gray-500 dark:text-gray-400 text-xs italic">
+                                                Unit #{unit.id.slice(-6)}
+                                              </span>
+                                            )}
+                                          </div>
                                           {unit.notes && (
                                             <span className="text-gray-500 dark:text-gray-400 text-xs">
                                               - {unit.notes}
