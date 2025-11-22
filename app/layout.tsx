@@ -50,14 +50,7 @@ export default function RootLayout({
         >
           <SizeProvider>
             <NextAuthSessionProvider>
-              <div className="min-h-screen flex flex-col">
-                <div className="flex-1">
-                  {children}
-                </div>
-                <footer className="border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 py-2 px-4 text-center text-sm text-gray-600 dark:text-gray-400">
-                  This was fucking made by Kenton
-                </footer>
-              </div>
+              {children}
             </NextAuthSessionProvider>
           </SizeProvider>
         </ThemeProvider>
